@@ -1,0 +1,24 @@
+services:
+  information-radar:
+    image: python:3.11-slim
+    working_dir: /app
+    volumes:
+      - ./:/app
+      - radar-data:/app/data
+    environment:
+      RADAR_DB: /app/data/radar.db
+      PYTHONPATH: /app/src
+      GITHUB_TOKEN: ${GITHUB_TOKEN:-}
+      PRODUCT_HUNT_TOKEN: ${PRODUCT_HUNT_TOKEN:-}
+      X_BEARER_TOKEN: ${X_BEARER_TOKEN:-}
+      TELEGRAM_BOT_TOKEN: ${TELEGRAM_BOT_TOKEN:-}
+      TELEGRAM_CHAT_ID: ${TELEGRAM_CHAT_ID:-}
+      TELEGRAM_THREAD_ID: ${TELEGRAM_THREAD_ID:-}
+      HERMES_WEBHOOK_URL: ${HERMES_WEBHOOK_URL:-}
+    command: python3 -m radar.cli --db /app/data/radar.db serve --host 0.0.0.0 --port 4173
+    ports:
+      - "127.0.0.1:4173:4173"
+    restart: unless-stopped
+
+volumes:
+  radar-data:

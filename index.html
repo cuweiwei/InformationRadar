@@ -1,0 +1,197 @@
+<!doctype html>
+<html lang="zh-Hant">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="description" content="Information Radar — early-signal intelligence dashboard" />
+    <title>Information Radar</title>
+    <link rel="stylesheet" href="src/web/styles.css" />
+  </head>
+  <body>
+    <div class="app-shell">
+      <aside class="sidebar" aria-label="主導覽">
+        <div class="brand">
+          <div class="brand-mark"><span></span><span></span><span></span></div>
+          <div>
+            <strong>Information<br />Radar</strong>
+            <small>PERSONAL INTELLIGENCE</small>
+          </div>
+        </div>
+
+        <div class="sidebar-section-label">RADAR</div>
+        <nav class="nav-list">
+          <button class="nav-item active" data-view="dashboard"><span class="nav-icon">◈</span>總覽 <em id="navCount">11</em></button>
+          <button class="nav-item" data-view="digest"><span class="nav-icon">✦</span>Daily Digest</button>
+          <button class="nav-item" data-view="history"><span class="nav-icon">◷</span>歷史偵測</button>
+        </nav>
+
+        <div class="sidebar-section-label">TOPIC</div>
+        <label class="topic-select-wrap">
+          <span class="topic-dot"></span>
+          <select id="topicSelector" aria-label="選擇雷達 Topic">
+            <option value="ai_tools">AI Tools</option>
+            <option value="housing">Housing</option>
+          </select>
+          <small>Active radar</small>
+          <span class="chevron">⌄</span>
+        </label>
+
+        <div class="sidebar-spacer"></div>
+        <div class="sidebar-footer">
+          <div class="sync-status"><span class="pulse-dot"></span><span><b>Radar is watching</b><small>Next run today, 07:00</small></span></div>
+          <button class="settings-button" id="settingsButton" aria-label="設定">⚙</button>
+        </div>
+      </aside>
+
+      <main class="main-content">
+        <header class="topbar">
+          <div class="breadcrumb"><span>Radar</span><span>/</span><b id="breadcrumbTopic">AI Tools</b></div>
+          <div class="topbar-actions">
+            <span class="timezone">Asia/Taipei · 08:12</span>
+            <button class="icon-button" id="settingsTopButton" aria-label="設定">⚙</button>
+            <button class="icon-button" id="notificationsButton" aria-label="通知">♢<i></i></button>
+            <div class="avatar">TH</div>
+          </div>
+        </header>
+
+        <div class="page-content">
+          <section class="hero-row">
+            <div>
+              <p class="eyebrow">THURSDAY, AUGUST 21, 2026</p>
+              <h1>Good morning, Tim<span class="accent">.</span></h1>
+              <p class="hero-subtitle" id="heroSubtitle">昨天到今天，有 <strong>3 個新訊號</strong> 正在快速升溫。</p>
+            </div>
+            <button class="primary-button" id="digestButton"><span>✦</span> Preview daily digest</button>
+          </section>
+
+          <section class="metric-grid" aria-label="今日摘要">
+            <article class="metric-card highlight-card">
+              <div class="metric-top"><span>RISING SIGNALS</span><span class="metric-icon rising-icon">↗</span></div>
+              <strong id="metricRisingCount">3</strong>
+              <p>值得今天優先研究</p>
+              <div class="metric-foot positive"><span>↑ 2</span> since yesterday</div>
+            </article>
+            <article class="metric-card">
+              <div class="metric-top"><span>NEW DISCOVERIES</span><span class="metric-icon">✦</span></div>
+              <strong id="metricNewCount">3</strong>
+              <p>首次被 Radar 偵測</p>
+              <div class="metric-foot">2 cross-source matches</div>
+            </article>
+            <article class="metric-card">
+              <div class="metric-top"><span>WATCHLIST</span><span class="metric-icon">◌</span></div>
+              <strong id="metricWatchlistCount">4</strong>
+              <p>證據仍在累積中</p>
+              <div class="metric-foot">1 score changed materially</div>
+            </article>
+            <article class="metric-card health-card">
+              <div class="metric-top"><span>SOURCE HEALTH</span><span class="metric-icon">⌁</span></div>
+              <strong><span id="metricHealthCount">4</span><span class="muted-number">/5</span></strong>
+              <p>collectors operational</p>
+              <div class="health-bar"><span style="width: 80%"></span></div>
+            </article>
+          </section>
+
+          <section class="workspace-grid">
+            <div class="radar-panel panel">
+              <div class="panel-heading">
+                <div>
+                  <div class="section-kicker"><span class="live-dot"></span>LIVE RADAR</div>
+                  <h2>Signals worth your attention</h2>
+                </div>
+                <button class="text-button" id="refreshButton">↻ Refresh mock data</button>
+              </div>
+              <div class="filter-row" role="tablist" aria-label="訊號篩選">
+                <button class="filter-button active" data-filter="RISING" role="tab">Rising <span id="filterRisingCount">3</span></button>
+                <button class="filter-button" data-filter="NEW" role="tab">New <span id="filterNewCount">3</span></button>
+                <button class="filter-button" data-filter="WATCHLIST" role="tab">Watchlist <span id="filterWatchlistCount">4</span></button>
+                <button class="filter-button" data-filter="ALL" role="tab">All <span id="filterAllCount">11</span></button>
+              </div>
+              <div class="entity-list" id="entityList"></div>
+              <div class="list-footer"><span>Live API when available · fixture fallback offline</span><button class="text-button" id="allEntitiesButton">View full history →</button></div>
+            </div>
+
+            <div class="side-column">
+              <section class="brief-card panel">
+                <div class="panel-heading compact">
+                  <div><div class="section-kicker">MORNING BRIEF</div><h2>今日雷達摘要</h2></div>
+                  <span class="date-badge">AUG 21</span>
+                </div>
+                <div class="brief-lead"><span class="flame">🔥</span><div><strong>oMLX 正在加速</strong><p>GitHub stars 的日增速是前一週的 3.2×，並在 HN 出現 Show HN 討論。</p></div></div>
+                <div class="mini-signal"><span class="mini-rank">02</span><div><strong>Herdr</strong><p>GitHub + Reddit · 首次偵測 2 天前</p></div><span class="mini-score">86</span></div>
+                <div class="mini-signal"><span class="mini-rank">03</span><div><strong>Agent Forge</strong><p>GitHub + HN · 首次偵測 4 天前</p></div><span class="mini-score">79</span></div>
+                <button class="secondary-button full-width" id="briefDigestButton">Open digest preview <span>→</span></button>
+              </section>
+
+              <section class="health-panel panel">
+                <div class="panel-heading compact"><div><div class="section-kicker">COLLECTOR STATUS</div><h2>Source health</h2></div><button class="more-button" id="healthButton" aria-label="查看來源狀態">•••</button></div>
+                <div class="source-list">
+                  <div class="source-row" data-source="github"><span class="source-logo github">GH</span><div><strong>GitHub</strong><small>1,842 repos scanned</small></div><span class="status-ok">Operational</span></div>
+                  <div class="source-row" data-source="hackernews"><span class="source-logo hn">Y</span><div><strong>Hacker News</strong><small>324 stories scanned</small></div><span class="status-ok">Operational</span></div>
+                  <div class="source-row" data-source="reddit"><span class="source-logo reddit">r/</span><div><strong>Reddit</strong><small>Last run failed</small></div><span class="status-warn">Partial</span></div>
+                  <div class="source-row" data-source="rss"><span class="source-logo rss">◔</span><div><strong>Official RSS</strong><small>18 feeds monitored</small></div><span class="status-ok">Operational</span></div>
+                </div>
+                <button class="text-button full-width align-left" id="healthDetailsButton">View run details →</button>
+              </section>
+            </div>
+          </section>
+        </div>
+      </main>
+    </div>
+
+    <dialog class="modal detail-modal" id="detailModal">
+      <div class="modal-head"><div><span class="modal-kicker">ENTITY DETAIL</span><h2 id="detailTitle">oMLX</h2></div><button class="close-button" data-close="detailModal" aria-label="關閉">×</button></div>
+      <div id="detailContent"></div>
+    </dialog>
+
+    <dialog class="modal digest-modal" id="digestModal">
+      <div class="modal-head"><div><span class="modal-kicker">TELEGRAM PREVIEW · 07:00 ASIA/TAIPEI</span><h2>Daily Intelligence Digest</h2></div><button class="close-button" data-close="digestModal" aria-label="關閉">×</button></div>
+      <div class="telegram-preview" id="digestContent"></div>
+      <div class="modal-actions"><span class="delivery-note"><span class="pulse-dot"></span> Ready to deliver</span><button class="primary-button" id="simulateDeliveryButton">Simulate Telegram delivery</button></div>
+    </dialog>
+
+    <dialog class="modal health-modal" id="healthModal">
+      <div class="modal-head"><div><span class="modal-kicker">OPERATIONAL VIEW</span><h2>Last radar run</h2></div><button class="close-button" data-close="healthModal" aria-label="關閉">×</button></div>
+      <div class="run-summary"><strong>2026-08-21 07:00</strong><span class="status-pill partial">PARTIAL SUCCESS</span><small>Duration 02m 48s · 2,184 items fetched · 74 candidates</small></div>
+      <div class="run-table">
+        <div class="run-row run-header"><span>Collector</span><span>Items</span><span>Status</span></div>
+        <div class="run-row"><span>GitHub</span><span>1,842</span><span class="status-ok">✓ SUCCESS</span></div>
+        <div class="run-row"><span>Hacker News</span><span>324</span><span class="status-ok">✓ SUCCESS</span></div>
+        <div class="run-row"><span>Reddit</span><span>—</span><span class="status-warn">! RATE LIMITED</span></div>
+        <div class="run-row"><span>Official RSS</span><span>18</span><span class="status-ok">✓ SUCCESS</span></div>
+      </div>
+      <div class="callout warning"><span>!</span><div><strong>Reddit was rate limited</strong><p>The digest remains available. Retry is scheduled for the next run.</p></div></div>
+    </dialog>
+
+    <dialog class="modal settings-modal" id="settingsModal">
+      <div class="modal-head"><div><span class="modal-kicker">RUNTIME CONFIGURATION</span><h2>Radar settings</h2></div><button class="close-button" data-close="settingsModal" aria-label="關閉">×</button></div>
+      <div class="settings-body">
+        <div class="settings-security"><span>🔒</span><div><strong>Secrets stay local</strong><p>Values are stored in the local SQLite settings table. The browser only receives configured / masked status, never the secret itself.</p></div></div>
+        <form id="settingsForm">
+          <section class="settings-section"><div class="settings-section-head"><div><span class="modal-kicker">SIGNAL SOURCES</span><h3>Provider credentials</h3></div><span class="settings-hint">Public sources work without tokens</span></div>
+            <div class="settings-grid">
+              <label class="setting-card"><span class="setting-title"><b>GitHub</b><i data-setting-status="GITHUB_TOKEN">Public API</i></span><small>Optional token for higher rate limits.</small><input type="password" name="GITHUB_TOKEN" placeholder="Leave blank to keep current" autocomplete="new-password"><button type="button" class="verify-button" data-verify="github">Verify connection</button></label>
+              <label class="setting-card"><span class="setting-title"><b>Hacker News</b><i data-static-status="hackernews">Public API</i></span><small>Algolia endpoint; no credential required.</small><div class="no-secret">No credential required</div><button type="button" class="verify-button" data-verify="hackernews">Verify connection</button></label>
+              <label class="setting-card"><span class="setting-title"><b>Reddit</b><i data-static-status="reddit">Public endpoint</i></span><small>Configured communities are topic-specific.</small><div class="no-secret">No credential required</div><button type="button" class="verify-button" data-verify="reddit">Verify connection</button></label>
+              <label class="setting-card"><span class="setting-title"><b>Product Hunt</b><i data-setting-status="PRODUCT_HUNT_TOKEN">Not configured</i></span><small>GraphQL token enables launch confirmation.</small><input type="password" name="PRODUCT_HUNT_TOKEN" placeholder="Leave blank to keep current" autocomplete="new-password"><button type="button" class="verify-button" data-verify="producthunt">Verify connection</button></label>
+              <label class="setting-card"><span class="setting-title"><b>X</b><i data-setting-status="X_BEARER_TOKEN">Not configured</i></span><small>Optional recent-search bearer token.</small><input type="password" name="X_BEARER_TOKEN" placeholder="Leave blank to keep current" autocomplete="new-password"><button type="button" class="verify-button" data-verify="x">Verify connection</button></label>
+            </div>
+          </section>
+          <section class="settings-section"><div class="settings-section-head"><div><span class="modal-kicker">DELIVERY</span><h3>Telegram</h3></div><span class="settings-hint">Digest delivery adapter</span></div>
+            <div class="settings-grid delivery-grid">
+              <label class="setting-card"><span class="setting-title"><b>Bot token</b><i data-setting-status="TELEGRAM_BOT_TOKEN">Not configured</i></span><small>Telegram Bot API token.</small><input type="password" name="TELEGRAM_BOT_TOKEN" placeholder="Leave blank to keep current" autocomplete="new-password"></label>
+              <label class="setting-card"><span class="setting-title"><b>Chat ID</b><i data-setting-status="TELEGRAM_CHAT_ID">Not configured</i></span><small>Destination chat or group ID.</small><input type="password" name="TELEGRAM_CHAT_ID" placeholder="Leave blank to keep current" autocomplete="new-password"></label>
+              <label class="setting-card"><span class="setting-title"><b>Thread ID</b><i data-setting-status="TELEGRAM_THREAD_ID">Optional</i></span><small>Optional Telegram topic/thread ID.</small><input type="text" name="TELEGRAM_THREAD_ID" placeholder="Optional thread ID" autocomplete="off"></label>
+            </div>
+            <div class="settings-actions"><button type="button" class="verify-button" data-verify="telegram">Verify bot and destination</button><button type="button" class="danger-button" data-verify="telegram" data-delivery-test="true">Send test message</button></div>
+          </section>
+          <section class="settings-section"><div class="settings-section-head"><div><span class="modal-kicker">HERMES ROUTING</span><h3>Hermes Agent</h3></div><span class="settings-hint">Optional machine-readable forwarding</span></div>
+            <div class="settings-grid"><label class="setting-card wide-card"><span class="setting-title"><b>Webhook URL</b><i data-setting-status="HERMES_WEBHOOK_URL">Not configured</i></span><small>Use a private Hermes-compatible webhook endpoint.</small><input type="password" name="HERMES_WEBHOOK_URL" placeholder="Leave blank to keep current" autocomplete="new-password"><div class="settings-actions"><button type="button" class="verify-button" data-verify="hermes">Check configuration</button><button type="button" class="danger-button" data-verify="hermes" data-delivery-test="true">Send test payload</button></div></label></div>
+          </section>
+          <div class="settings-footer"><span id="settingsResult" class="settings-result"></span><button type="submit" class="primary-button">Save settings</button></div>
+        </form>
+      </div>
+    </dialog>
+
+    <script src="src/web/app.js"></script>
+  </body>
+</html>

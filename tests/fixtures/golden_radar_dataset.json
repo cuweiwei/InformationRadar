@@ -1,0 +1,9 @@
+{
+  "expected_principle": "small rapidly growing project outranks popular stable project",
+  "entities": [
+    {"name": "popular-stable", "stars": [50000, 50040, 50060], "sources": ["github"], "expected_rank": 2},
+    {"name": "small-fast", "stars": [200, 450, 950], "sources": ["github", "hackernews"], "expected_rank": 1},
+    {"name": "cross-source", "stars": [120, 180, 250], "sources": ["github", "reddit", "rss"], "expected_rank": 3},
+    {"name": "single-source-noise", "stars": [3, 4, 5], "sources": ["github"], "expected_rank": 4}
+  ]
+}
