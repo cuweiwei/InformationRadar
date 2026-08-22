@@ -54,8 +54,4 @@ jobs:
             org.opencontainers.image.revision=${{ github.sha }}
             org.opencontainers.image.source=https://github.com/${{ github.repository }}
       - name: Publish image metadata
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          gh api --method PATCH user/packages/container/information-radar -f visibility=public
-          echo "image=ghcr.io/${{ github.repository_owner }}/information-radar@${{ steps.build.outputs.digest }}" >> "$GITHUB_STEP_SUMMARY"
+        run: echo "image=ghcr.io/${{ github.repository_owner }}/information-radar@${{ steps.build.outputs.digest }}" >> "$GITHUB_STEP_SUMMARY"
