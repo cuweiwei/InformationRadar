@@ -1,24 +1,36 @@
 services:
-  information-radar:
-    image: python:3.11-slim
-    working_dir: /app
-    volumes:
-      - ./:/app
-      - radar-data:/app/data
+  radar-web:
+    image: ${RADAR_IMAGE:?RADAR_IMAGE is required}
+    command: ["radar", "serve", "--host", "0.0.0.0", "--port", "8787", "--no-demo"]
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:8787:8787"
+    env_file:
+      - .env
     environment:
       RADAR_DB: /app/data/radar.db
-      PYTHONPATH: /app/src
-      GITHUB_TOKEN: ${GITHUB_TOKEN:-}
-      PRODUCT_HUNT_TOKEN: ${PRODUCT_HUNT_TOKEN:-}
-      X_BEARER_TOKEN: ${X_BEARER_TOKEN:-}
-      TELEGRAM_BOT_TOKEN: ${TELEGRAM_BOT_TOKEN:-}
-      TELEGRAM_CHAT_ID: ${TELEGRAM_CHAT_ID:-}
-      TELEGRAM_THREAD_ID: ${TELEGRAM_THREAD_ID:-}
-      HERMES_WEBHOOK_URL: ${HERMES_WEBHOOK_URL:-}
-    command: python3 -m radar.cli --db /app/data/radar.db serve --host 0.0.0.0 --port 4173
-    ports:
-      - "127.0.0.1:4173:4173"
-    restart: unless-stopped
+    volumes:
+      - ./data:/app/data
+      - ./backups:/app/backups
+      - ./config:/app/config:ro
+      - ./logs:/app/logs
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8787/health/ready', timeout=3)"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
 
-volumes:
-  radar-data:
+  radar-job:
+    image: ${RADAR_IMAGE:?RADAR_IMAGE is required}
+    profiles: ["job"]
+    command: ["radar", "run", "ai_tools", "--since", "1d", "--deliver"]
+    env_file:
+      - .env
+    environment:
+      RADAR_DB: /app/data/radar.db
+    volumes:
+      - ./data:/app/data
+      - ./backups:/app/backups
+      - ./config:/app/config:ro
+      - ./logs:/app/logs

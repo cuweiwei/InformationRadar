@@ -10,6 +10,9 @@ SETTING_DEFINITIONS = {
     "TELEGRAM_CHAT_ID": {"label": "Telegram chat ID", "secret": True, "group": "telegram"},
     "TELEGRAM_THREAD_ID": {"label": "Telegram thread ID", "secret": False, "group": "telegram"},
     "HERMES_WEBHOOK_URL": {"label": "Hermes webhook URL", "secret": True, "group": "hermes"},
+    "LLM_API_URL": {"label": "LLM API URL", "secret": False, "group": "enrichment"},
+    "LLM_API_KEY": {"label": "LLM API key", "secret": True, "group": "enrichment"},
+    "LLM_MODEL": {"label": "LLM model", "secret": False, "group": "enrichment"},
 }
 
 

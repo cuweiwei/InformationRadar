@@ -35,6 +35,7 @@ def main(argv=None):
     run.add_argument("--since", default="1d")
     run.add_argument("--deliver", action="store_true")
     run.add_argument("--dry-run", action="store_true")
+    run.add_argument("--force", action="store_true", help="re-send a successful delivery")
 
     demo = sub.add_parser("demo", help="seed deterministic fixture signals")
     demo.add_argument("topic", nargs="?", default="ai_tools")
@@ -44,8 +45,11 @@ def main(argv=None):
 
     server = sub.add_parser("serve", help="serve the dashboard and local API")
     server.add_argument("--host", default="127.0.0.1")
-    server.add_argument("--port", type=int, default=4173)
+    server.add_argument("--port", type=int, default=8787)
     server.add_argument("--no-demo", action="store_true")
+
+    backup = sub.add_parser("backup", help="create a consistent SQLite backup")
+    backup.add_argument("destination")
 
     schedule = sub.add_parser("schedule", help="run the daily scheduler in Asia/Taipei")
     schedule.add_argument("topic")
@@ -65,12 +69,15 @@ def main(argv=None):
             ranked = pipeline.score_topic(plugin)
             print(json.dumps({"topic": args.topic, "entities": [item.as_dict() for item in ranked]}, ensure_ascii=False, indent=2))
         elif args.command == "run":
-            print(json.dumps(pipeline.run(args.topic, parse_since(args.since), deliver=args.deliver, dry_run=args.dry_run), ensure_ascii=False, indent=2))
+            print(json.dumps(pipeline.run(args.topic, parse_since(args.since), deliver=args.deliver, dry_run=args.dry_run, force=args.force), ensure_ascii=False, indent=2))
         elif args.command == "digest":
             result = storage.latest_digest(args.topic)
             print(result["text"] if result else "No digest stored for %s" % args.topic)
         elif args.command == "schedule":
             print(json.dumps(run_scheduler(pipeline, args.topic, args.hour, args.minute, args.deliver, args.once), ensure_ascii=False, indent=2))
+        elif args.command == "backup":
+            storage.backup_to(args.destination)
+            print(json.dumps({"status": "SUCCESS", "destination": args.destination}, ensure_ascii=False))
     finally:
         storage.close()
 

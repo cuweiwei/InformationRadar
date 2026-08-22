@@ -146,6 +146,9 @@ class Storage:
                 pass
         self.connection.row_factory = sqlite3.Row
         self.connection.execute("PRAGMA foreign_keys = ON")
+        if path != ":memory:":
+            self.connection.execute("PRAGMA journal_mode = WAL")
+        self.connection.execute("PRAGMA busy_timeout = 5000")
         self.connection.executescript(SCHEMA)
         self.connection.commit()
 
@@ -287,7 +290,39 @@ class Storage:
         self.connection.commit()
 
     def record_delivery(self, digest_id: str, adapter: str, status: str, error: str = "") -> None:
+        self.connection.execute("DELETE FROM delivery_runs WHERE digest_id=? AND adapter=? AND status != 'SUCCESS'", (digest_id, adapter))
+        existing = self.connection.execute("SELECT status FROM delivery_runs WHERE digest_id=? AND adapter=? ORDER BY created_at DESC LIMIT 1", (digest_id, adapter)).fetchone()
+        if existing and existing["status"] == "SUCCESS":
+            return
         self.connection.execute("INSERT INTO delivery_runs(id,digest_id,adapter,status,created_at,error) VALUES(?,?,?,?,?,?)", (str(uuid.uuid4()), digest_id, adapter, status, isoformat(utc_now()), error))
+        self.connection.commit()
+
+    def delivery_status(self, digest_id: str, adapter: str) -> Optional[sqlite3.Row]:
+        return self.connection.execute("SELECT * FROM delivery_runs WHERE digest_id=? AND adapter=? ORDER BY created_at DESC LIMIT 1", (digest_id, adapter)).fetchone()
+
+    def latest_delivery(self, topic_id: str) -> Optional[Dict[str, Any]]:
+        row = self.connection.execute("SELECT dr.* FROM delivery_runs dr JOIN digests d ON d.id=dr.digest_id WHERE d.topic_id=? ORDER BY dr.created_at DESC LIMIT 1", (topic_id,)).fetchone()
+        return dict(row) if row else None
+
+    def health(self) -> Dict[str, Any]:
+        self.connection.execute("SELECT 1").fetchone()
+        tables = {row["name"] for row in self.connection.execute("SELECT name FROM sqlite_master WHERE type='table'")}
+        required = {"raw_signals", "entities", "scores", "digests", "delivery_runs"}
+        return {"database": "ok", "schema_ready": required.issubset(tables), "path": self.path}
+
+    def backup_to(self, destination: str) -> None:
+        parent = os.path.dirname(destination)
+        if parent:
+            os.makedirs(parent, exist_ok=True)
+        target = sqlite3.connect(destination)
+        try:
+            self.connection.backup(target)
+        finally:
+            target.close()
+        try:
+            os.chmod(destination, 0o600)
+        except OSError:
+            pass
         self.connection.commit()
 
     def latest_runs(self, topic_id: str, limit: int = 20) -> List[Dict[str, Any]]:

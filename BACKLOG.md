@@ -23,5 +23,7 @@
 - [ ] Add review UI for low-confidence entity merges and alias correction
 - [ ] Add persistent score history chart to the entity detail view
 - [ ] Add configurable topic YAML loading and configuration management UI
-- [ ] Add production Telegram/Hermes client verification and deployment runbook
+- [x] Add production Telegram/Hermes client verification and deployment runbook
+- [x] Production container image, GHCR workflow, NAS web/job split, health checks, backup and rollback
+- [x] Optional OpenAI-compatible LLM enrichment with fail-open delivery
 - [ ] Add manual mainstream-awareness timestamp and lead-time measurement

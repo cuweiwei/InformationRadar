@@ -184,6 +184,13 @@
             </div>
             <div class="settings-actions"><button type="button" class="verify-button" data-verify="telegram">Verify bot and destination</button><button type="button" class="danger-button" data-verify="telegram" data-delivery-test="true">Send test message</button></div>
           </section>
+          <section class="settings-section"><div class="settings-section-head"><div><span class="modal-kicker">OPTIONAL ENRICHMENT</span><h3>LLM editor</h3></div><span class="settings-hint">Scoring remains deterministic</span></div>
+            <div class="settings-grid">
+              <label class="setting-card"><span class="setting-title"><b>API URL</b><i data-setting-status="LLM_API_URL">Not configured</i></span><small>OpenAI-compatible chat completions endpoint.</small><input type="url" name="LLM_API_URL" placeholder="https://.../v1/chat/completions" autocomplete="off"></label>
+              <label class="setting-card"><span class="setting-title"><b>API key</b><i data-setting-status="LLM_API_KEY">Not configured</i></span><small>Optional provider credential.</small><input type="password" name="LLM_API_KEY" placeholder="Leave blank to keep current" autocomplete="new-password"></label>
+              <label class="setting-card"><span class="setting-title"><b>Model</b><i data-setting-status="LLM_MODEL">Not configured</i></span><small>Model identifier used for concise evidence-bound summaries.</small><input type="text" name="LLM_MODEL" placeholder="model-name" autocomplete="off"></label>
+            </div>
+          </section>
           <section class="settings-section"><div class="settings-section-head"><div><span class="modal-kicker">HERMES ROUTING</span><h3>Hermes Agent</h3></div><span class="settings-hint">Optional machine-readable forwarding</span></div>
             <div class="settings-grid"><label class="setting-card wide-card"><span class="setting-title"><b>Webhook URL</b><i data-setting-status="HERMES_WEBHOOK_URL">Not configured</i></span><small>Use a private Hermes-compatible webhook endpoint.</small><input type="password" name="HERMES_WEBHOOK_URL" placeholder="Leave blank to keep current" autocomplete="new-password"><div class="settings-actions"><button type="button" class="verify-button" data-verify="hermes">Check configuration</button><button type="button" class="danger-button" data-verify="hermes" data-delivery-test="true">Send test payload</button></div></label></div>
           </section>

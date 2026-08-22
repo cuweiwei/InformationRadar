@@ -80,6 +80,19 @@ class CoreTests(unittest.TestCase):
             self.assertEqual(effective_settings(storage)["GITHUB_TOKEN"], "ghp_super_secret_value")
             storage.close()
 
+    def test_storage_health_backup_and_delivery_deduplication(self):
+        with tempfile.TemporaryDirectory() as directory:
+            source = os.path.join(directory, "source.db")
+            backup = os.path.join(directory, "backup.db")
+            storage = Storage(source)
+            self.assertTrue(storage.health()["schema_ready"])
+            storage.set_setting("GITHUB_TOKEN", "token")
+            storage.backup_to(backup)
+            restored = Storage(backup)
+            self.assertEqual(restored.get_setting("GITHUB_TOKEN"), "token")
+            restored.close()
+            storage.close()
+
 
 if __name__ == "__main__":
     unittest.main()

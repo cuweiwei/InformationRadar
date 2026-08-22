@@ -46,6 +46,12 @@ class RadarServer:
                 parsed = urlparse(self.path)
                 query = parse_qs(parsed.query)
                 topic_id = query.get("topic", ["ai_tools"])[0]
+                if parsed.path == "/health":
+                    return _json_response(self, 200, {"status": "ok", **app.storage.health()})
+                if parsed.path == "/health/ready":
+                    health = app.storage.health()
+                    status = 200 if health["schema_ready"] else 503
+                    return _json_response(self, status, {"status": "ready" if status == 200 else "not_ready", **health})
                 if parsed.path == "/api/topics":
                     return _json_response(self, 200, {"topics": [{"id": item.config.id, "name": item.config.name, "description": item.config.description} for item in app.registry.all() if item.config.id != "test_topic"]})
                 if parsed.path == "/api/state":
@@ -53,7 +59,7 @@ class RadarServer:
                 if parsed.path == "/api/digest":
                     return _json_response(self, 200, app.storage.latest_digest(topic_id) or {"topic": topic_id, "text": "", "payload": {}})
                 if parsed.path == "/api/health":
-                    return _json_response(self, 200, {"topic": topic_id, "runs": app.storage.latest_runs(topic_id)})
+                    return _json_response(self, 200, {"topic": topic_id, "runs": app.storage.latest_runs(topic_id), "delivery": app.storage.latest_delivery(topic_id)})
                 if parsed.path == "/api/settings":
                     return _json_response(self, 200, {"settings": status_payload(app.storage)})
                 return app.static(self, parsed.path)

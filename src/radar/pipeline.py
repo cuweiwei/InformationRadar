@@ -13,6 +13,7 @@ from .storage import Storage, parse_time
 from .topics import TopicPlugin, TopicRegistry
 from .delivery import HermesDelivery, TelegramDelivery
 from .settings import effective_settings
+from .enrichment import LLMEnricher
 
 
 class RadarPipeline:
@@ -21,7 +22,7 @@ class RadarPipeline:
         self.registry = registry or TopicRegistry.default()
         self.collectors = list(collectors or [GitHubCollector(), HackerNewsCollector(), RedditCollector(), ProductHuntCollector(), XCollector(), RSSCollector()])
 
-    def run(self, topic_id: str, since: Optional[datetime] = None, deliver: bool = False, dry_run: bool = False) -> Dict:
+    def run(self, topic_id: str, since: Optional[datetime] = None, deliver: bool = False, dry_run: bool = False, force: bool = False) -> Dict:
         topic = self.registry.get(topic_id)
         self.storage.upsert_topic(topic.config)
         settings = effective_settings(self.storage)
@@ -41,6 +42,7 @@ class RadarPipeline:
             result.items_accepted = accepted
             results.append(result)
         ranked = self.score_topic(topic)
+        ranked = LLMEnricher(settings).enrich_many(ranked[:topic.config.digest_max_items]) + ranked[topic.config.digest_max_items:]
         text, payload, items = build_digest(topic, ranked)
         digest_id = ""
         delivery = {}
@@ -48,10 +50,12 @@ class RadarPipeline:
             digest_id = self.storage.save_digest(topic_id, payload["date"], text, payload, items)
             if deliver:
                 telegram = TelegramDelivery(settings=settings)
-                delivery[telegram.name] = telegram.deliver(text)
+                previous = self.storage.delivery_status(digest_id, telegram.name)
+                delivery[telegram.name] = {"status": "SKIPPED", "error": "Already delivered"} if previous and previous["status"] == "SUCCESS" and not force else telegram.deliver(text)
                 self.storage.record_delivery(digest_id, telegram.name, delivery[telegram.name]["status"], delivery[telegram.name].get("error", ""))
                 hermes = HermesDelivery(settings=settings)
-                delivery[hermes.name] = hermes.deliver(payload)
+                previous = self.storage.delivery_status(digest_id, hermes.name)
+                delivery[hermes.name] = {"status": "SKIPPED", "error": "Already delivered"} if previous and previous["status"] == "SUCCESS" and not force else hermes.deliver(payload)
                 self.storage.record_delivery(digest_id, hermes.name, delivery[hermes.name]["status"], delivery[hermes.name].get("error", ""))
         return {"topic": topic_id, "collectors": [{"source": result.source, "status": result.status, "fetched": result.items_fetched, "accepted": result.items_accepted, "error": result.error} for result in results], "entities": len(ranked), "digest_id": digest_id, "digest": text, "delivery": delivery, "partial": any(result.status not in ("SUCCESS", "PARTIAL") for result in results)}
 

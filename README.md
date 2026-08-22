@@ -11,7 +11,7 @@ cd /Users/tim_hong/Documents/ChatGPT/InformationRadar
 PYTHONPATH=src python3 -m radar.cli --db data/radar.db serve
 ```
 
-Open <http://127.0.0.1:4173>.
+Open <http://127.0.0.1:8787>.
 
 The development server seeds deterministic demo data for `ai_tools` and `housing` when the database is empty. The UI uses the API when available and falls back to local fixtures when opened as a static file.
 
@@ -32,6 +32,9 @@ PYTHONPATH=src python3 -m radar.cli digest ai_tools
 # Run once or keep the daily 07:00 Asia/Taipei scheduler alive
 PYTHONPATH=src python3 -m radar.cli schedule ai_tools --once
 PYTHONPATH=src python3 -m radar.cli schedule ai_tools --hour 7 --minute 0 --deliver
+
+# Create a consistent SQLite backup
+PYTHONPATH=src python3 -m radar.cli --db data/radar.db backup backups/radar-manual.db
 ```
 
 ## Architecture
@@ -69,7 +72,20 @@ Copy `.env.example` into your deployment environment. Do not commit real tokens.
 
 When the local server is running, the gear icon opens Web Settings. You can save provider and delivery credentials, see only masked/configured status, verify read-only provider connectivity, and explicitly send a Telegram/Hermes delivery test. Web-saved values are stored in the local SQLite `app_settings` table and take precedence over environment variables; blank secret fields keep the existing value.
 
-The Docker example binds the dashboard to `127.0.0.1:4173` on the host. Put it behind the user's private access layer when deploying to a NAS; do not expose the port publicly.
+The production Docker image is built by GitHub Actions and published to GHCR. Synology runs `radar-web` continuously and starts `radar-job` from Task Scheduler at 07:00 Asia/Taipei. The host port is bound to `127.0.0.1:8787`; use a private Tailscale or NAS access layer and do not expose the port publicly.
+
+Optional LLM enrichment uses an OpenAI-compatible `LLM_API_URL`, `LLM_API_KEY`, and `LLM_MODEL`. If these are absent or unavailable, deterministic Radar summaries and scores remain active.
+
+## NAS deployment
+
+The production directory is `/volume1/docker/information-radar`. Keep `RADAR_IMAGE` in `image.env` pinned to a GHCR digest. The guarded deployment script backs up SQLite, recreates only the web service, checks `/health/ready`, and restores the previous image reference on failure:
+
+```bash
+/volume1/docker/information-radar/scripts/nas-deploy.sh \
+  ghcr.io/cuweiwei/information-radar@sha256:<digest>
+```
+
+Configure Synology Task Scheduler with `/volume1/docker/information-radar/scripts/run-radar-job.sh` at 07:00 and `/volume1/docker/information-radar/scripts/backup-radar.sh` at 06:45. The job is idempotent for collection and digest persistence; delivery records prevent normal duplicate sends. A network timeout after Telegram accepted a message remains an ambiguous delivery and must be reconciled before forcing a retry.
 
 The settings API is intentionally local-only and does not include a multi-user authentication layer in V1. Keep the bind address private and do not publish `/api/settings` to the Internet.
 
@@ -84,4 +100,4 @@ The golden fixture covers popular-but-stable, small-fast, cross-source, duplicat
 
 ## Delivery boundaries
 
-Local implementation and fixture/API smoke tests are verified. Live GitHub/HN/Reddit/Product Hunt/X credentials, Telegram delivery, Hermes routing, and production deployment still require the configured environment and a live run.
+Local implementation and fixture/API smoke tests are verified by CI. Live GitHub/HN/Reddit/Product Hunt/X credentials, Telegram delivery, Hermes routing, GHCR publication, NAS deployment, and private-access verification require the configured environment and a live run.
