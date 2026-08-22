@@ -3,7 +3,7 @@ set -eu
 
 APP_DIR="${RADAR_APP_DIR:-/volume1/docker/information-radar}"
 DOCKER_BIN="${RADAR_DOCKER_BIN:-/usr/local/bin/docker}"
-docker_cmd() { if [ "${RADAR_USE_SUDO:-1}" = "1" ]; then sudo "$DOCKER_BIN" "$@"; else "$DOCKER_BIN" "$@"; fi; }
+docker_cmd() { if [ "${RADAR_USE_SUDO:-1}" = "1" ]; then sudo env RADAR_IMAGE="${RADAR_IMAGE:-}" "$DOCKER_BIN" "$@"; else "$DOCKER_BIN" "$@"; fi; }
 NEW_IMAGE="${1:?usage: nas-deploy.sh ghcr.io/owner/information-radar@sha256:digest}"
 cd "$APP_DIR"
 mkdir -p data config logs backups run releases

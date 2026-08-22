@@ -3,7 +3,7 @@ set -eu
 
 APP_DIR="${RADAR_APP_DIR:-/volume1/docker/information-radar}"
 DOCKER_BIN="${RADAR_DOCKER_BIN:-/usr/local/bin/docker}"
-docker_cmd() { if [ "${RADAR_USE_SUDO:-1}" = "1" ]; then sudo "$DOCKER_BIN" "$@"; else "$DOCKER_BIN" "$@"; fi; }
+docker_cmd() { if [ "${RADAR_USE_SUDO:-1}" = "1" ]; then sudo env RADAR_IMAGE="${RADAR_IMAGE:-}" "$DOCKER_BIN" "$@"; else "$DOCKER_BIN" "$@"; fi; }
 LOCK_DIR="$APP_DIR/run/job.lock"
 mkdir -p "$APP_DIR/run"
 if ! mkdir "$LOCK_DIR" 2>/dev/null; then
