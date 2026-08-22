@@ -21,8 +21,6 @@ services:
       LLM_MODEL: ${LLM_MODEL:-}
     volumes:
       - /volume1/docker/information-radar/data:/app/data
-      - /volume1/docker/information-radar/backups:/app/backups
-      - /volume1/docker/information-radar/config:/app/config:ro
       - /volume1/docker/information-radar/logs:/app/logs
     healthcheck:
       test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8787/health/ready', timeout=3)"]
@@ -51,6 +49,4 @@ services:
       LLM_MODEL: ${LLM_MODEL:-}
     volumes:
       - /volume1/docker/information-radar/data:/app/data
-      - /volume1/docker/information-radar/backups:/app/backups
-      - /volume1/docker/information-radar/config:/app/config:ro
       - /volume1/docker/information-radar/logs:/app/logs
