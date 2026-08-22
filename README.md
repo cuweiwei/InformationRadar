@@ -72,7 +72,7 @@ Copy `.env.example` into your deployment environment. Do not commit real tokens.
 
 When the local server is running, the gear icon opens Web Settings. You can save provider and delivery credentials, see only masked/configured status, verify read-only provider connectivity, and explicitly send a Telegram/Hermes delivery test. Web-saved values are stored in the local SQLite `app_settings` table and take precedence over environment variables; blank secret fields keep the existing value.
 
-The production Docker image is built by GitHub Actions and published to GHCR. Synology runs `radar-web` continuously and starts `radar-job` from Task Scheduler at 07:00 Asia/Taipei. The host port is bound to `127.0.0.1:8787`; use a private Tailscale or NAS access layer and do not expose the port publicly.
+The production Docker image is built by GitHub Actions and published to GHCR. Synology runs `radar-web` continuously and starts `radar-job` from Task Scheduler at 07:00 Asia/Taipei. The host port is bound to `127.0.0.1:8789` because `8787` is already used by the Hermes linebot; the container still listens on `8787`. Use a private Tailscale or NAS access layer and do not expose the port publicly.
 
 Optional LLM enrichment uses an OpenAI-compatible `LLM_API_URL`, `LLM_API_KEY`, and `LLM_MODEL`. If these are absent or unavailable, deterministic Radar summaries and scores remain active.
 

@@ -2,6 +2,7 @@
 set -eu
 
 APP_DIR="${RADAR_APP_DIR:-/volume1/docker/information-radar}"
+HOST_PORT="${RADAR_HOST_PORT:-8789}"
 DOCKER_BIN="${RADAR_DOCKER_BIN:-/usr/local/bin/docker}"
 docker_cmd() { if [ "${RADAR_USE_SUDO:-1}" = "1" ]; then sudo env RADAR_IMAGE="${RADAR_IMAGE:-}" "$DOCKER_BIN" "$@"; else "$DOCKER_BIN" "$@"; fi; }
 NEW_IMAGE="${1:?usage: nas-deploy.sh ghcr.io/owner/information-radar@sha256:digest}"
@@ -25,7 +26,7 @@ docker_cmd compose up -d radar-web
 
 READY=0
 for attempt in 1 2 3 4 5 6 7 8 9 10; do
-  if curl -fsS http://127.0.0.1:8787/health/ready >"/tmp/information-radar-health.json"; then
+  if curl -fsS "http://127.0.0.1:$HOST_PORT/health/ready" >"/tmp/information-radar-health.json"; then
     READY=1
     break
   fi

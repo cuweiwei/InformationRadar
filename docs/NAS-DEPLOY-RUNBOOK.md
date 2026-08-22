@@ -29,6 +29,8 @@ scripts/nas-deploy.sh ghcr.io/cuweiwei/information-radar@sha256:<digest>
 
 The script creates an online SQLite backup, saves the previous image reference, updates only `radar-web`, and verifies `/health/ready`. It prints `DEPLOYMENT VERIFIED` only after the health check succeeds.
 
+Information Radar uses host port `8789` and container port `8787`; host port `8787` is reserved by the existing `chloe-linebot` service.
+
 ## Rollback
 
 If readiness fails, the script restores `releases/previous-image.env` and recreates `radar-web`. SQLite is never automatically restored. To restore data, stop the web service, validate the selected backup with `PRAGMA integrity_check`, and perform the restore as an explicit owner-approved operation.
@@ -36,8 +38,8 @@ If readiness fails, the script restores `releases/previous-image.env` and recrea
 ## Acceptance
 
 ```bash
-curl -fsS http://127.0.0.1:8787/health
-curl -fsS http://127.0.0.1:8787/health/ready
+curl -fsS http://127.0.0.1:8789/health
+curl -fsS http://127.0.0.1:8789/health/ready
 docker compose ps
 docker compose --profile job run --rm radar-job radar run ai_tools --dry-run
 ```

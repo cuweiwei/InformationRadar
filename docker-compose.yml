@@ -4,7 +4,7 @@ services:
     command: ["radar", "serve", "--host", "0.0.0.0", "--port", "8787", "--no-demo"]
     restart: unless-stopped
     ports:
-      - "127.0.0.1:8787:8787"
+      - "127.0.0.1:${RADAR_HOST_PORT:-8789}:8787"
     env_file:
       - .env
     environment:
