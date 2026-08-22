@@ -12,6 +12,8 @@ Create `data`, `config`, `logs`, `backups`, `run`, and `releases`. Copy `.env.ex
 RADAR_IMAGE=ghcr.io/cuweiwei/information-radar@sha256:<digest>
 ```
 
+The NAS scripts use `/usr/local/bin/docker` through `sudo` by default. For a manual deployment, the owner must run `sudo -v` in their own interactive TTY first. Configure both Synology Task Scheduler entries to run as `root`; a non-interactive scheduler cannot answer a sudo password prompt.
+
 Use Synology Task Scheduler with timezone `Asia/Taipei`:
 
 - 06:45: `scripts/backup-radar.sh`
