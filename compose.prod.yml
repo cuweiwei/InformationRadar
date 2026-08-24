@@ -1,3 +1,5 @@
+name: information-radar
+
 services:
   radar-web:
     image: ghcr.io/cuweiwei/information-radar@sha256:f5d31d9b05e9ba3b60d69fd74a4a842ef917837d47b08c7783a0faabde81e514
