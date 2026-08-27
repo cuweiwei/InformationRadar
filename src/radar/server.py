@@ -1,6 +1,7 @@
 import json
 import mimetypes
 import os
+import re
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from urllib.parse import parse_qs, urlparse
 
@@ -9,6 +10,10 @@ from .pipeline import RadarPipeline
 from .settings import SETTING_DEFINITIONS, status_payload
 from .storage import Storage
 from .topics import TopicRegistry
+
+
+COMMIT_SHA_PATTERN = re.compile(r"^[0-9a-f]{40}$", re.IGNORECASE)
+IMAGE_DIGEST_PATTERN = re.compile(r"^sha256:[0-9a-f]{64}$", re.IGNORECASE)
 
 
 def _json_response(handler, status, payload):
@@ -52,6 +57,8 @@ class RadarServer:
                     health = app.storage.health()
                     status = 200 if health["schema_ready"] else 503
                     return _json_response(self, status, {"status": "ready" if status == 200 else "not_ready", **health})
+                if parsed.path == "/health/ops":
+                    return _json_response(self, 200, app.operations_health())
                 if parsed.path == "/api/topics":
                     return _json_response(self, 200, {"topics": [{"id": item.config.id, "name": item.config.name, "description": item.config.description} for item in app.registry.all() if item.config.id != "test_topic"]})
                 if parsed.path == "/api/state":
@@ -91,6 +98,38 @@ class RadarServer:
                 return _json_response(self, 200, app.pipeline.run(topic_id, deliver=bool(payload.get("deliver"))))
 
         return Handler
+
+    def operations_health(self):
+        health = self.storage.health()
+        schema_ready = bool(health["schema_ready"])
+        commit = os.environ.get("AIHP_RELEASE_COMMIT", "")
+        image_digest = os.environ.get("AIHP_IMAGE_DIGEST", "")
+        return {
+            "service": "information-radar",
+            "release": {
+                "commit": commit if COMMIT_SHA_PATTERN.fullmatch(commit) else None,
+                "imageDigest": image_digest if IMAGE_DIGEST_PATTERN.fullmatch(image_digest) else None,
+            },
+            "database": {
+                "status": health["database"],
+                "schemaReady": schema_ready,
+                "readiness": "ready" if schema_ready else "not_ready",
+            },
+            "backup": {
+                "status": "local_only",
+                "adapterVerified": False,
+                "mechanism": "sqlite_online_backup",
+            },
+            "restoreTest": {
+                "status": "manual_only",
+                "adapterVerified": False,
+            },
+            "secretAdapter": {
+                "status": "not_implemented",
+                "adapterVerified": False,
+                "credentialSource": "environment_or_local_settings",
+            },
+        }
 
     def state(self, topic_id):
         plugin = self.registry.get(topic_id)

@@ -40,8 +40,11 @@ If readiness fails, the script restores `releases/previous-image.env` and recrea
 ```bash
 curl -fsS http://127.0.0.1:8789/health
 curl -fsS http://127.0.0.1:8789/health/ready
+curl -fsS http://127.0.0.1:8789/health/ops
 docker compose ps
 docker compose --profile job run --rm radar-job radar run ai_tools --dry-run
 ```
+
+AI Home Platform verifies the release artifact's source Compose checksum, materializes the required `IMAGE_DIGEST`, and injects `AIHP_RELEASE_COMMIT` and `AIHP_IMAGE_DIGEST` into the production Compose environment. `/health/ops` returns the release values only when they have the expected immutable formats. Its backup, restore-test, and secret-adapter fields remain unverified until dedicated platform adapters have been implemented and independently exercised.
 
 Verify the dashboard through the private access path, then run one configured provider check and one Telegram delivery test. Do not treat a green CI workflow as production deployment evidence.

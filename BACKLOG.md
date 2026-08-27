@@ -25,5 +25,7 @@
 - [ ] Add configurable topic YAML loading and configuration management UI
 - [x] Add production Telegram/Hermes client verification and deployment runbook
 - [x] Production container image, GHCR workflow, NAS web/job split, health checks, backup and rollback
+- [x] AI Home Platform v2 release artifact and read-only operations evidence endpoint
+- [ ] Add and independently verify AI Home Platform backup, restore-test, and runtime secret adapters
 - [x] Optional OpenAI-compatible LLM enrichment with fail-open delivery
 - [ ] Add manual mainstream-awareness timestamp and lead-time measurement

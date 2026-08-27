@@ -1,14 +1,22 @@
 import json
 import os
+import subprocess
+import sys
 import tempfile
+import threading
 import unittest
 from datetime import datetime, timedelta, timezone
+from http.server import ThreadingHTTPServer
+from unittest.mock import patch
+from urllib.error import HTTPError
+from urllib.request import Request, urlopen
 
 from radar.collectors.base import Collector
 from radar.entity_resolution import resolve_signal
 from radar.models import CollectorResult, RawSignal
 from radar.pipeline import RadarPipeline
 from radar.scoring import acceleration, early_signal_score, lifecycle, velocity
+from radar.server import RadarServer
 from radar.storage import Storage
 from radar.settings import effective_settings, status_payload
 from radar.topics import TopicRegistry
@@ -92,6 +100,74 @@ class CoreTests(unittest.TestCase):
             self.assertEqual(restored.get_setting("GITHUB_TOKEN"), "token")
             restored.close()
             storage.close()
+
+    def test_operations_health_reports_release_and_unverified_adapters(self):
+        with tempfile.TemporaryDirectory() as directory:
+            storage = Storage(os.path.join(directory, "ops.db"))
+            app = RadarServer("src/web", storage, TopicRegistry.default(), None)
+            commit = "a" * 40
+            digest = "sha256:" + "b" * 64
+            with patch.dict(os.environ, {"AIHP_RELEASE_COMMIT": commit, "AIHP_IMAGE_DIGEST": digest}):
+                payload = app.operations_health()
+            self.assertEqual(payload["service"], "information-radar")
+            self.assertEqual(payload["release"], {"commit": commit, "imageDigest": digest})
+            self.assertEqual(payload["database"], {"status": "ok", "schemaReady": True, "readiness": "ready"})
+            self.assertFalse(payload["backup"]["adapterVerified"])
+            self.assertFalse(payload["restoreTest"]["adapterVerified"])
+            self.assertFalse(payload["secretAdapter"]["adapterVerified"])
+            storage.close()
+
+    def test_operations_health_does_not_expose_invalid_release_values(self):
+        storage = Storage(":memory:")
+        app = RadarServer("src/web", storage, TopicRegistry.default(), None)
+        with patch.dict(os.environ, {"AIHP_RELEASE_COMMIT": "secret", "AIHP_IMAGE_DIGEST": "latest"}):
+            self.assertEqual(app.operations_health()["release"], {"commit": None, "imageDigest": None})
+        storage.close()
+
+    def test_operations_health_get_endpoint(self):
+        storage = Storage(":memory:")
+        app = RadarServer("src/web", storage, TopicRegistry.default(), None)
+        server = ThreadingHTTPServer(("127.0.0.1", 0), app.handler())
+        thread = threading.Thread(target=server.serve_forever, daemon=True)
+        thread.start()
+        try:
+            url = "http://127.0.0.1:%d/health/ops" % server.server_port
+            with urlopen(url) as response:
+                payload = json.load(response)
+            self.assertEqual(response.status, 200)
+            self.assertEqual(payload["service"], "information-radar")
+            with self.assertRaises(HTTPError) as error:
+                urlopen(Request(url, data=b"{}", method="POST"))
+            self.assertEqual(error.exception.code, 404)
+        finally:
+            server.shutdown()
+            server.server_close()
+            thread.join()
+            storage.close()
+
+    def test_release_manifest_generator(self):
+        with tempfile.TemporaryDirectory() as directory:
+            compose = os.path.join(directory, "compose.prod.yml")
+            output = os.path.join(directory, "release-manifest.json")
+            with open(compose, "wb") as file_handle:
+                file_handle.write(b"services: {}\n")
+            commit = "c" * 40
+            digest = "sha256:" + "d" * 64
+            subprocess.run(
+                [sys.executable, "scripts/generate-release-manifest.py", "--commit", commit, "--image-digest", digest, "--compose", compose, "--output", output],
+                check=True,
+            )
+            with open(output, encoding="utf-8") as file_handle:
+                manifest = json.load(file_handle)
+            self.assertEqual(manifest["schemaVersion"], 1)
+            self.assertEqual(manifest["serviceId"], "information-radar")
+            self.assertEqual(manifest["repository"], "cuweiwei/InformationRadar")
+            self.assertEqual(manifest["commitSha"], commit)
+            self.assertEqual(manifest["imageDigest"], digest)
+            self.assertEqual(manifest["composePath"], "compose.prod.yml")
+            self.assertEqual(manifest["composeSha256"], "fa6ccea1ca4e3a031d9e99f25cc05db803aa9bac642c000ddab14f6d9da54b52")
+            self.assertEqual(manifest["deploymentProjectId"], "information-radar")
+            self.assertEqual(manifest["health"], {"path": "/health", "readinessPath": "/health/ready"})
 
 
 if __name__ == "__main__":

@@ -2,7 +2,7 @@ name: information-radar
 
 services:
   radar-web:
-    image: ghcr.io/cuweiwei/information-radar@sha256:6f879e5d4825c7a6bca991873f8584004b6019755b43eadb04106adbd26d198d
+    image: ghcr.io/cuweiwei/information-radar@${IMAGE_DIGEST:?IMAGE_DIGEST is required}
     command: ["radar", "serve", "--host", "0.0.0.0", "--port", "8787", "--no-demo"]
     restart: unless-stopped
     ports:
@@ -11,6 +11,8 @@ services:
       RADAR_DB: /app/data/radar.db
       RADAR_HTTP_TIMEOUT: ${RADAR_HTTP_TIMEOUT:-15}
       RADAR_TIMEZONE: ${RADAR_TIMEZONE:-Asia/Taipei}
+      AIHP_RELEASE_COMMIT: ${AIHP_RELEASE_COMMIT:-}
+      AIHP_IMAGE_DIGEST: ${AIHP_IMAGE_DIGEST:-}
       GITHUB_TOKEN: ${GITHUB_TOKEN:-}
       PRODUCT_HUNT_TOKEN: ${PRODUCT_HUNT_TOKEN:-}
       X_BEARER_TOKEN: ${X_BEARER_TOKEN:-}
@@ -32,13 +34,15 @@ services:
       start_period: 10s
 
   radar-job:
-    image: ghcr.io/cuweiwei/information-radar@sha256:6f879e5d4825c7a6bca991873f8584004b6019755b43eadb04106adbd26d198d
+    image: ghcr.io/cuweiwei/information-radar@${IMAGE_DIGEST:?IMAGE_DIGEST is required}
     profiles: ["job"]
     command: ["radar", "run", "ai_tools", "--since", "1d", "--deliver"]
     environment:
       RADAR_DB: /app/data/radar.db
       RADAR_HTTP_TIMEOUT: ${RADAR_HTTP_TIMEOUT:-15}
       RADAR_TIMEZONE: ${RADAR_TIMEZONE:-Asia/Taipei}
+      AIHP_RELEASE_COMMIT: ${AIHP_RELEASE_COMMIT:-}
+      AIHP_IMAGE_DIGEST: ${AIHP_IMAGE_DIGEST:-}
       GITHUB_TOKEN: ${GITHUB_TOKEN:-}
       PRODUCT_HUNT_TOKEN: ${PRODUCT_HUNT_TOKEN:-}
       X_BEARER_TOKEN: ${X_BEARER_TOKEN:-}
