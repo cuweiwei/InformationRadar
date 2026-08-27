@@ -1,4 +1,4 @@
-FROM python:3.11-slim
+FROM python:3.11-slim@sha256:1042b61448fef4ba92d16a8c7eb4996d027568ce64792a7877fd88511e0af7c6
 
 ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
@@ -8,7 +8,11 @@ WORKDIR /app
 COPY pyproject.toml README.md index.html ./
 COPY src/ /app/src/
 
-RUN pip install --no-cache-dir --no-deps . \
+RUN apt-get update \
+    && apt-get upgrade -y \
+    && rm -rf /var/lib/apt/lists/* \
+    && pip install --no-cache-dir --upgrade "jaraco.context==6.1.0" "wheel==0.46.2" \
+    && pip install --no-cache-dir --no-deps . \
     && useradd --create-home --uid 10001 radar \
     && mkdir -p /app/data /app/config /app/logs \
     && chown -R radar:radar /app

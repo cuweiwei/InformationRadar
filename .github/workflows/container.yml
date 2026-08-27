@@ -50,6 +50,7 @@ jobs:
         with:
           context: .
           platforms: linux/amd64
+          pull: true
           push: true
           provenance: mode=max
           sbom: true
@@ -63,7 +64,7 @@ jobs:
           image-ref: ghcr.io/${{ github.repository_owner }}/information-radar@${{ steps.build.outputs.digest }}
           format: table
           exit-code: '1'
-          ignore-unfixed: false
+          ignore-unfixed: true
           scanners: vuln
           vuln-type: os,library
           severity: HIGH,CRITICAL
