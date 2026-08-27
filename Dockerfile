@@ -11,8 +11,8 @@ COPY src/ /app/src/
 RUN apt-get update \
     && apt-get upgrade -y \
     && rm -rf /var/lib/apt/lists/* \
-    && pip install --no-cache-dir --upgrade "jaraco.context==6.1.0" "wheel==0.46.2" \
     && pip install --no-cache-dir --no-deps . \
+    && pip uninstall -y setuptools wheel \
     && useradd --create-home --uid 10001 radar \
     && mkdir -p /app/data /app/config /app/logs \
     && chown -R radar:radar /app

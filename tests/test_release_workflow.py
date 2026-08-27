@@ -33,8 +33,7 @@ class ReleaseWorkflowTests(unittest.TestCase):
     def test_runtime_base_and_fixable_tooling_are_pinned(self):
         self.assertRegex(self.dockerfile, r"FROM python:3\.11-slim@sha256:[0-9a-f]{64}")
         self.assertIn("apt-get upgrade -y", self.dockerfile)
-        self.assertIn('"jaraco.context==6.1.0"', self.dockerfile)
-        self.assertIn('"wheel==0.46.2"', self.dockerfile)
+        self.assertIn("pip uninstall -y setuptools wheel", self.dockerfile)
 
     def test_release_artifact_is_emitted_only_after_cve_gate(self):
         scan = self.workflow.index("name: Scan published image for HIGH and CRITICAL CVEs")
