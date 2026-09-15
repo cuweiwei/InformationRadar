@@ -32,6 +32,10 @@ services:
       timeout: 5s
       retries: 3
       start_period: 10s
+    networks:
+      personal-ai-network:
+        aliases:
+          - information-radar
 
   radar-job:
     image: ghcr.io/cuweiwei/information-radar@${IMAGE_DIGEST:?IMAGE_DIGEST is required}
@@ -56,3 +60,7 @@ services:
     volumes:
       - /volume1/docker/information-radar/data:/app/data
       - /volume1/docker/information-radar/logs:/app/logs
+
+networks:
+  personal-ai-network:
+    external: true
