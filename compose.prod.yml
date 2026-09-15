@@ -34,10 +34,10 @@ services:
       - /volume1/docker/information-radar/logs:/app/logs
     healthcheck:
       test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8787/health/ready', timeout=3)"]
-      interval: 30s
+      interval: 5s
       timeout: 5s
       retries: 3
-      start_period: 10s
+      start_period: 5s
 
   radar-job:
     image: ghcr.io/cuweiwei/information-radar@sha256:e181091460841b2e677d7ca6a07a298fc8128a8d5bb245ca03ec88df2d355f1e
