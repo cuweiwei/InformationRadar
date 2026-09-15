@@ -51,9 +51,9 @@ class RadarServer:
                 parsed = urlparse(self.path)
                 query = parse_qs(parsed.query)
                 topic_id = query.get("topic", ["ai_tools"])[0]
-                if parsed.path == "/health":
+                if parsed.path in ("/health", "/healthz"):
                     return _json_response(self, 200, {"status": "ok", **app.storage.health()})
-                if parsed.path == "/health/ready":
+                if parsed.path in ("/health/ready", "/readyz"):
                     health = app.storage.health()
                     status = 200 if health["schema_ready"] else 503
                     return _json_response(self, status, {"status": "ready" if status == 200 else "not_ready", **health})
