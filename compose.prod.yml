@@ -2,7 +2,7 @@ name: information-radar
 
 services:
   radar-web:
-    image: ghcr.io/cuweiwei/information-radar@sha256:94ce29e724a6cf8e0b2443dd9b04a3080dcd7a56813ca6d711c769936660029c
+    image: ghcr.io/cuweiwei/information-radar@sha256:42af425f898e7ee2edcae12b99112083b28d87917974ff43bb50c679b54cb983
     command: ["radar", "serve", "--host", "0.0.0.0", "--port", "8787", "--no-demo"]
     restart: unless-stopped
     ports:
@@ -40,7 +40,7 @@ services:
       start_period: 10s
 
   radar-job:
-    image: ghcr.io/cuweiwei/information-radar@sha256:94ce29e724a6cf8e0b2443dd9b04a3080dcd7a56813ca6d711c769936660029c
+    image: ghcr.io/cuweiwei/information-radar@sha256:42af425f898e7ee2edcae12b99112083b28d87917974ff43bb50c679b54cb983
     profiles: ["job"]
     command: ["radar", "run", "ai_tools", "--since", "1d", "--deliver"]
     environment:
