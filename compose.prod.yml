@@ -2,7 +2,7 @@ name: information-radar
 
 services:
   radar-web:
-    image: ghcr.io/cuweiwei/information-radar@sha256:e181091460841b2e677d7ca6a07a298fc8128a8d5bb245ca03ec88df2d355f1e
+    image: ghcr.io/cuweiwei/information-radar@sha256:dafe6d394d125a0d6d14a51815fd7b5155547b0762399d0edb07219569bd2eea
     command: ["radar", "serve", "--host", "0.0.0.0", "--port", "8787", "--no-demo"]
     restart: unless-stopped
     ports:
@@ -11,8 +11,8 @@ services:
       RADAR_DB: /app/data/radar.db
       RADAR_HTTP_TIMEOUT: ${RADAR_HTTP_TIMEOUT:-15}
       RADAR_TIMEZONE: ${RADAR_TIMEZONE:-Asia/Taipei}
-      AIHP_RELEASE_COMMIT: 34508bf3f6e3c3db32bc46a6303c541598e7f829
-      AIHP_IMAGE_DIGEST: sha256:e181091460841b2e677d7ca6a07a298fc8128a8d5bb245ca03ec88df2d355f1e
+      AIHP_RELEASE_COMMIT: 854c9b59d4521f137712162a898bcd1dd1790ef6
+      AIHP_IMAGE_DIGEST: sha256:dafe6d394d125a0d6d14a51815fd7b5155547b0762399d0edb07219569bd2eea
       GITHUB_TOKEN: ${GITHUB_TOKEN:-}
       PRODUCT_HUNT_TOKEN: ${PRODUCT_HUNT_TOKEN:-}
       X_BEARER_TOKEN: ${X_BEARER_TOKEN:-}
@@ -40,15 +40,15 @@ services:
       start_period: 5s
 
   radar-job:
-    image: ghcr.io/cuweiwei/information-radar@sha256:e181091460841b2e677d7ca6a07a298fc8128a8d5bb245ca03ec88df2d355f1e
+    image: ghcr.io/cuweiwei/information-radar@sha256:dafe6d394d125a0d6d14a51815fd7b5155547b0762399d0edb07219569bd2eea
     profiles: ["job"]
     command: ["radar", "run", "ai_tools", "--since", "1d", "--deliver"]
     environment:
       RADAR_DB: /app/data/radar.db
       RADAR_HTTP_TIMEOUT: ${RADAR_HTTP_TIMEOUT:-15}
       RADAR_TIMEZONE: ${RADAR_TIMEZONE:-Asia/Taipei}
-      AIHP_RELEASE_COMMIT: 34508bf3f6e3c3db32bc46a6303c541598e7f829
-      AIHP_IMAGE_DIGEST: sha256:e181091460841b2e677d7ca6a07a298fc8128a8d5bb245ca03ec88df2d355f1e
+      AIHP_RELEASE_COMMIT: 854c9b59d4521f137712162a898bcd1dd1790ef6
+      AIHP_IMAGE_DIGEST: sha256:dafe6d394d125a0d6d14a51815fd7b5155547b0762399d0edb07219569bd2eea
       GITHUB_TOKEN: ${GITHUB_TOKEN:-}
       PRODUCT_HUNT_TOKEN: ${PRODUCT_HUNT_TOKEN:-}
       X_BEARER_TOKEN: ${X_BEARER_TOKEN:-}
