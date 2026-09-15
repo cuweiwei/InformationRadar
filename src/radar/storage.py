@@ -453,6 +453,13 @@ class Storage:
         revision = requested_revision or (int(latest["revision"]) + 1 if latest else 1)
         if latest and revision <= int(latest["revision"]):
             raise ValueError("INSIGHT_REVISION_CONFLICT")
+        if latest:
+            # Content remains immutable, but the predecessor is no longer the
+            # current source revision once a successor is recorded.
+            self.connection.execute(
+                "UPDATE insights SET status='CORRECTED',updated_at=? WHERE insight_id=? AND revision=? AND status='ACTIVE'",
+                (now, insight_id, int(latest["revision"])),
+            )
         self.connection.execute(
             "INSERT INTO insights(insight_id,revision,topic_id,title,summary,sources_json,detected_at,confidence_basis_json,confidence,importance,tags_json,entities_json,evidence_json,content_hash,status,previous_revision,created_at,updated_at) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
             (
@@ -541,6 +548,8 @@ class Storage:
         for column, value in (("status", status), ("hub_item_id", hub_item_id), ("hub_revision", hub_revision), ("hub_withdrawal_status", hub_withdrawal_status), ("last_error", error)):
             if value is not None:
                 updates.append(column + "=?"); params.append(value)
+        if error is None and status in ("CANDIDATE", "ACCEPTED", "WITHDRAWN", "STALE"):
+            updates.append("last_error=NULL")
         if receipt is not None:
             updates.append("receipt_json=?"); params.append(json.dumps(receipt, ensure_ascii=False))
         updates.append("updated_at=?"); params.append(isoformat(utc_now())); params.append(publication_id)
@@ -586,6 +595,8 @@ class Storage:
             assignments.append("receipt_json=?"); params.append(json.dumps(receipt, ensure_ascii=False))
         if error is not None:
             assignments.append("last_error=?"); params.append(error)
+        elif state in ("ACCEPTED_BY_HERMES", "SENT", "EXPIRED", "STALE", "WITHDRAWN"):
+            assignments.append("last_error=NULL")
         if increment_attempt:
             assignments.append("attempts=attempts+1")
         params.append(event_id)

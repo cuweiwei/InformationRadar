@@ -176,7 +176,6 @@ class ContextHubPublicationClient:
         }
 
     def withdraw(self, insight: Dict[str, Any], operation_key: str) -> Dict[str, Any]:
-        item = hub_item_for(insight, self.source_uri)
         body = {
             "schema_version": 1,
             "insight_id": insight["insight_id"],
@@ -187,8 +186,8 @@ class ContextHubPublicationClient:
         }
         response = self.client.request("POST", self.path, body, operation_key)
         evidence = response.get("hub_withdrawal") if isinstance(response.get("hub_withdrawal"), dict) else response
-        status = str(evidence.get("status") or "UNKNOWN").lower()
-        mapped = {"applied": "CONFIRMED", "stale": "STALE", "not_found": "NOT_FOUND"}.get(status, "UNKNOWN")
+        status = str(evidence.get("hub_withdrawal_status") or evidence.get("status") or "UNKNOWN").lower()
+        mapped = {"applied": "CONFIRMED", "withdrawn": "CONFIRMED", "confirmed": "CONFIRMED", "stale": "STALE", "not_found": "NOT_FOUND"}.get(status, "UNKNOWN")
         return {"status": mapped, "receipt": {"provider": "contexthub", "path": self.path, "response": response}}
 
     def reconcile(self, insight_id: str) -> Dict[str, Any]:
@@ -249,12 +248,18 @@ class InsightLifecycle:
         insight = self.storage.get_insight(insight_id, revision)
         if not insight:
             raise KeyError("INSIGHT_NOT_FOUND")
+        if insight["status"] == "WITHDRAWN":
+            raise ValueError("INSIGHT_WITHDRAWN")
+        if insight["status"] == "CORRECTED":
+            raise ValueError("INSIGHT_REVISION_STALE")
         publication_key = operation_key or "radar:publish:%s:r%s" % (insight_id, insight["revision"])
         item = hub_item_for(insight)
         payload_hash = publication_hash({"action": "publish", "insight": insight, "item": item})
         publication = self.storage.save_publication({"insight_id": insight_id, "insight_revision": insight["revision"], "action": "publish", "operation_key": publication_key, "payload_hash": payload_hash, "hub_content_hash": item["content_hash"], "status": "PENDING"})
         if publication.get("status") in ("CANDIDATE", "ACCEPTED") and publication.get("hub_item_id"):
             return publication
+        if publication.get("status") in ("UNKNOWN", "SENDING"):
+            return dict(publication, publication_blocked="UNKNOWN_REQUIRES_RECONCILIATION")
         try:
             result = self.hub.publish(insight, publication_key)
             return self.storage.update_publication(publication["publication_id"], status=result["status"], hub_item_id=result.get("hub_item_id"), hub_revision=result.get("hub_revision"), receipt=result.get("receipt"), error=None if result["status"] in ("CANDIDATE", "ACCEPTED") else "HUB_PUBLICATION_STATUS_UNKNOWN")
@@ -265,16 +270,19 @@ class InsightLifecycle:
         insight = self.storage.withdraw_insight(insight_id)
         publication = self.storage.latest_publication(insight_id, "publish")
         key = operation_key or "radar:withdraw:%s:r%s" % (insight_id, insight["revision"])
-        withdrawal = None
-        if publication:
-            withdrawal_hash = publication_hash({"action": "withdraw", "insight": insight, "published_revision": publication.get("insight_revision")})
-            withdrawal = self.storage.save_publication({"insight_id": insight_id, "insight_revision": insight["revision"], "action": "withdraw", "operation_key": key, "payload_hash": withdrawal_hash, "status": "PENDING"})
+        withdrawal_hash = publication_hash({"action": "withdraw", "insight": insight, "published_revision": publication.get("insight_revision") if publication else None})
+        withdrawal = self.storage.save_publication({"insight_id": insight_id, "insight_revision": insight["revision"], "action": "withdraw", "operation_key": key, "payload_hash": withdrawal_hash, "status": "PENDING"})
+        if withdrawal.get("status") in ("UNKNOWN", "SENDING"):
+            withdrawal = dict(withdrawal, withdrawal_blocked="UNKNOWN_REQUIRES_RECONCILIATION")
+        elif withdrawal.get("status") not in ("WITHDRAWN", "ACCEPTED") and publication:
             try:
                 result = self.hub.withdraw(insight, key)
                 withdrawal = self.storage.update_publication(withdrawal["publication_id"], status="WITHDRAWN", hub_withdrawal_status=result["status"], receipt=result.get("receipt"), error=None if result["status"] in ("CONFIRMED", "STALE", "NOT_FOUND") else "HUB_WITHDRAWAL_STATUS_UNKNOWN")
             except IntegrationError as error:
                 withdrawal = self.storage.update_publication(withdrawal["publication_id"], status="UNKNOWN", hub_withdrawal_status="UNKNOWN", receipt={"provider": "contexthub", "error_code": error.code}, error=error.code + ": " + str(error))
-        event = self.enqueue_event(insight_id, insight["revision"], event_type="radar.insight.withdrawn.v1", summary="Radar insight withdrawn", action_required=False, expires_at=None)
+        elif withdrawal.get("status") not in ("WITHDRAWN", "ACCEPTED"):
+            withdrawal = self.storage.update_publication(withdrawal["publication_id"], status="WITHDRAWN", receipt={"provider": "contexthub", "reason": "no_publication_to_withdraw"})
+        event = self.enqueue_event(insight_id, insight["revision"], event_type="radar.insight.withdrawn.v1", summary="Radar insight withdrawn", action_required=False, expires_at=None, event_id="radar:withdraw:%s:r%s" % (insight_id, insight["revision"]))
         return {"insight": insight, "publication": publication, "withdrawal": withdrawal, "event": event}
 
     def reconcile_publication(self, insight_id: str) -> Dict[str, Any]:
@@ -306,8 +314,11 @@ class InsightLifecycle:
             raise KeyError("INSIGHT_NOT_FOUND")
         if event_type != "radar.insight.withdrawn.v1" and insight["status"] == "WITHDRAWN":
             raise ValueError("INSIGHT_WITHDRAWN")
+        latest = self.storage.get_insight(insight_id)
         publication = self.storage.publication_for(insight_id, insight["revision"], "publish")
         prior_event = self.storage.event(event_id) if event_id else None
+        if not prior_event and event_type != "radar.insight.withdrawn.v1" and latest and int(insight["revision"]) < int(latest["revision"]):
+            raise ValueError("INSIGHT_REVISION_STALE")
         if prior_event:
             prior_payload = prior_event.get("payload", {}).get("payload", {})
             occurred_at = occurred_at or prior_event.get("occurred_at")
@@ -360,18 +371,37 @@ class InsightLifecycle:
             raise KeyError("EVENT_NOT_FOUND")
         if event.get("outbox_state") in ("UNKNOWN", "SENDING") and not allow_unknown_retry:
             return dict(event, delivery_blocked="UNKNOWN_REQUIRES_RECONCILIATION")
-        if event.get("outbox_state") == "WITHDRAWN":
+        if event.get("outbox_state") in ("ACCEPTED_BY_HERMES", "SENT", "WITHDRAWN", "STALE"):
             return event
         expires_at = event.get("expires_at")
         if _is_expired(expires_at) and event.get("event_type") != "radar.insight.withdrawn.v1":
-            return self.storage.update_event_delivery(event_id, "EXPIRED", error="EVENT_EXPIRED")
+            return self.storage.update_event_delivery(event_id, "EXPIRED", receipt={"provider": "hermes", "disposition": "ignored_expired"}, error="EVENT_EXPIRED")
+        latest = self.storage.get_insight(event["insight_id"])
+        if event.get("event_type") != "radar.insight.withdrawn.v1" and latest:
+            if latest["status"] == "WITHDRAWN":
+                return self.storage.update_event_delivery(event_id, "WITHDRAWN", receipt={"provider": "hermes", "disposition": "suppressed_withdrawn"}, error="INSIGHT_WITHDRAWN")
+            if int(event["insight_revision"]) < int(latest["revision"]):
+                return self.storage.update_event_delivery(event_id, "STALE", receipt={"provider": "hermes", "disposition": "suppressed_stale_revision", "current_revision": latest["revision"]}, error="EVENT_STALE_REVISION")
         try:
             # SENDING is durable evidence that a provider call was in flight.
             # A crash at this boundary must be reconciled explicitly, never
             # treated as a safe automatic retry.
             self.storage.update_event_delivery(event_id, "SENDING")
             result = self.hermes.deliver(event["payload"])
-            return self.storage.update_event_delivery(event_id, result.get("status", "UNKNOWN"), receipt=result.get("receipt"), error=result.get("error"), increment_attempt=True)
+            if not isinstance(result, dict):
+                result = {"status": "UNKNOWN", "error": "HERMES_INVALID_RESULT"}
+            status = str(result.get("status", "UNKNOWN")).upper()
+            receipt = result.get("receipt")
+            if status in ("SENT", "ACCEPTED_BY_HERMES"):
+                if not isinstance(receipt, dict) or not receipt.get("receipt_id"):
+                    status = "UNKNOWN"
+                    result["error"] = "PROVIDER_RECEIPT_MISSING"
+                else:
+                    status = "ACCEPTED_BY_HERMES"
+            elif status not in ("FAILED", "UNKNOWN"):
+                status = "UNKNOWN"
+                result["error"] = "HERMES_STATUS_UNSUPPORTED"
+            return self.storage.update_event_delivery(event_id, status, receipt=receipt, error=result.get("error"), increment_attempt=True)
         except IntegrationError as error:
             return self.storage.update_event_delivery(event_id, "UNKNOWN" if error.unknown else "FAILED", receipt={"provider": "hermes", "error_code": error.code}, error=error.code + ": " + str(error), increment_attempt=True)
 

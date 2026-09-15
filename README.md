@@ -122,8 +122,11 @@ Set `HERMES_EVENT_URL` and optionally `HERMES_EVENT_PATH` (default
 `{source,event_id,payload}`. Radar records Hermes durable-inbox acceptance as a
 receipt; it does not claim Telegram delivery or that a user read the event.
 Events are idempotent by `event_id`, retain `sequence` and
-`subject_revision`, expire without delivery after `expires_at`, and require
-explicit reconciliation before retrying an unknown provider result.
+`subject_revision`, suppress queued stale revisions before delivery, and
+expire without delivery after `expires_at`. Withdrawals persist a tombstone
+and stable withdrawal event; pending delivery survives restart, while an
+unknown or in-flight provider result requires explicit reconciliation before
+retrying.
 
 The CP read projection is `GET /api/v2/radar/projection` (also
 `/api/v2/projection`) and requires `Authorization: Bearer <RADAR_PROJECTION_TOKEN>`.
