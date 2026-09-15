@@ -33,6 +33,7 @@ services:
       retries: 3
       start_period: 5s
     networks:
+      default: {}
       personal-ai-network:
         aliases:
           - information-radar
@@ -62,5 +63,6 @@ services:
       - /volume1/docker/information-radar/logs:/app/logs
 
 networks:
+  default: {}
   personal-ai-network:
     external: true
