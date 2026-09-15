@@ -40,6 +40,53 @@ class CollectorResult:
 
 
 @dataclass
+class Insight:
+    """A durable, Radar-owned summary of source evidence.
+
+    Raw source records stay in Radar.  Downstream integrations receive only
+    this bounded summary plus provenance, never an instruction-bearing raw
+    payload.
+    """
+
+    insight_id: str
+    revision: int
+    topic_id: str
+    title: str
+    summary: str
+    sources: List[Dict[str, Any]] = field(default_factory=list)
+    detected_at: datetime = field(default_factory=utc_now)
+    confidence_basis: Dict[str, Any] = field(default_factory=dict)
+    confidence: Optional[float] = None
+    importance: Optional[float] = None
+    tags: List[str] = field(default_factory=list)
+    entities: List[str] = field(default_factory=list)
+    evidence: List[Dict[str, Any]] = field(default_factory=list)
+    content_hash: str = ""
+    status: str = "ACTIVE"
+    previous_revision: Optional[int] = None
+
+    def as_dict(self) -> Dict[str, Any]:
+        return {
+            "insight_id": self.insight_id,
+            "revision": self.revision,
+            "topic_id": self.topic_id,
+            "title": self.title,
+            "summary": self.summary,
+            "sources": self.sources,
+            "detected_at": isoformat(self.detected_at),
+            "confidence_basis": self.confidence_basis,
+            "confidence": self.confidence,
+            "importance": self.importance,
+            "tags": self.tags,
+            "entities": self.entities,
+            "evidence": self.evidence,
+            "content_hash": self.content_hash,
+            "status": self.status,
+            "previous_revision": self.previous_revision,
+        }
+
+
+@dataclass
 class TopicConfig:
     id: str
     name: str

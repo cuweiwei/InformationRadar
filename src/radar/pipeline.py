@@ -1,5 +1,6 @@
 import json
 import os
+import uuid
 from datetime import datetime, timedelta, timezone
 from typing import Dict, Iterable, List, Optional
 from urllib.parse import urlparse
@@ -14,6 +15,7 @@ from .topics import TopicPlugin, TopicRegistry
 from .delivery import HermesDelivery, TelegramDelivery
 from .settings import effective_settings
 from .enrichment import LLMEnricher
+from .lifecycle import ContextHubPublicationClient, HermesEventClient, InsightLifecycle
 
 
 class RadarPipeline:
@@ -21,11 +23,21 @@ class RadarPipeline:
         self.storage = storage
         self.registry = registry or TopicRegistry.default()
         self.collectors = list(collectors or [GitHubCollector(), HackerNewsCollector(), RedditCollector(), ProductHuntCollector(), XCollector(), RSSCollector()])
+        self.lifecycle = InsightLifecycle(storage)
 
-    def run(self, topic_id: str, since: Optional[datetime] = None, deliver: bool = False, dry_run: bool = False, force: bool = False) -> Dict:
+    def configure_integrations(self, settings: Optional[Dict[str, str]] = None) -> None:
+        settings = settings or effective_settings(self.storage)
+        self.lifecycle = InsightLifecycle(
+            self.storage,
+            hub=ContextHubPublicationClient(base_url=settings.get("CONTEXTHUB_BASE_URL", ""), api_key=settings.get("CONTEXTHUB_API_KEY", "")),
+            hermes=HermesEventClient(url=settings.get("HERMES_EVENT_URL", ""), api_key=settings.get("HERMES_EVENT_API_KEY", ""), path=settings.get("HERMES_EVENT_PATH", "")),
+        )
+
+    def run(self, topic_id: str, since: Optional[datetime] = None, deliver: bool = False, dry_run: bool = False, force: bool = False, publish: bool = False) -> Dict:
         topic = self.registry.get(topic_id)
         self.storage.upsert_topic(topic.config)
         settings = effective_settings(self.storage)
+        self.configure_integrations(settings)
         since = since or (datetime.now(timezone.utc) - timedelta(days=1))
         results = []
         for collector in self.collectors:
@@ -46,7 +58,12 @@ class RadarPipeline:
         text, payload, items = build_digest(topic, ranked)
         digest_id = ""
         delivery = {}
+        insights = []
+        publications = []
         if not dry_run:
+            insights = [self.lifecycle.record(self._insight_value(topic_id, entity)) for entity in ranked]
+            if publish:
+                publications = [self.lifecycle.publish(item["insight_id"], item["revision"]) for item in insights]
             digest_id = self.storage.save_digest(topic_id, payload["date"], text, payload, items)
             if deliver:
                 telegram = TelegramDelivery(settings=settings)
@@ -57,7 +74,43 @@ class RadarPipeline:
                 previous = self.storage.delivery_status(digest_id, hermes.name)
                 delivery[hermes.name] = {"status": "SKIPPED", "error": "Already delivered"} if previous and previous["status"] == "SUCCESS" and not force else hermes.deliver(payload)
                 self.storage.record_delivery(digest_id, hermes.name, delivery[hermes.name]["status"], delivery[hermes.name].get("error", ""))
-        return {"topic": topic_id, "collectors": [{"source": result.source, "status": result.status, "fetched": result.items_fetched, "accepted": result.items_accepted, "error": result.error} for result in results], "entities": len(ranked), "digest_id": digest_id, "digest": text, "delivery": delivery, "partial": any(result.status not in ("SUCCESS", "PARTIAL") for result in results)}
+        return {"topic": topic_id, "collectors": [{"source": result.source, "status": result.status, "fetched": result.items_fetched, "accepted": result.items_accepted, "error": result.error} for result in results], "entities": len(ranked), "insights": [{"insight_id": item["insight_id"], "revision": item["revision"], "content_hash": item["content_hash"]} for item in insights], "publications": publications, "digest_id": digest_id, "digest": text, "delivery": delivery, "partial": any(result.status not in ("SUCCESS", "PARTIAL") for result in results)}
+
+    def _insight_value(self, topic_id: str, entity: EntityView) -> Dict:
+        """Convert a ranked entity into a stable, bounded insight revision."""
+        stable_name = entity.canonical_name or entity.name
+        insight_id = str(uuid.uuid5(uuid.NAMESPACE_URL, "information-radar:%s:%s" % (topic_id, stable_name)))
+        signals = self.storage.signals_for_entity(entity.id)
+        sources = []
+        for signal in signals:
+            sources.append({
+                "source": signal["source"],
+                "source_item_id": signal["source_item_id"],
+                "url": signal["source_url"],
+                "published_at": signal["published_at"],
+                "title": signal["title"][:500],
+            })
+        sources.sort(key=lambda item: (item.get("source", ""), item.get("source_item_id", "")))
+        confidences = []
+        for signal in signals:
+            try:
+                confidences.append(float(json.loads(signal["classification_json"]).get("confidence", 0.5)))
+            except (TypeError, ValueError, json.JSONDecodeError):
+                pass
+        return {
+            "insight_id": insight_id,
+            "topic_id": topic_id,
+            "title": entity.name,
+            "summary": entity.summary[:2000],
+            "sources": sources[:20],
+            "detected_at": entity.last_seen_at.isoformat(),
+            "confidence_basis": {"classification_confidence_mean": round(sum(confidences) / len(confidences), 4) if confidences else None, "source_count": len(entity.sources), "signal_count": len(signals), "ranking_evidence": entity.evidence[:3]},
+            "confidence": round(sum(confidences) / len(confidences), 4) if confidences else None,
+            "importance": round(entity.score / 100.0, 4),
+            "tags": [entity.category, entity.status.lower()],
+            "entities": [entity.canonical_name],
+            "evidence": [{"kind": row[1], "value": row[0]} for row in entity.evidence[:3]],
+        }
 
     def verify_connection(self, target: str, delivery_test: bool = False) -> Dict:
         """Verify a configured provider without returning or logging its credential."""

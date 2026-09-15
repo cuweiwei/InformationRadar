@@ -1,4 +1,5 @@
 import json
+import hmac
 import mimetypes
 import os
 import re
@@ -7,7 +8,7 @@ from urllib.parse import parse_qs, urlparse
 
 from .demo import demo_signals
 from .pipeline import RadarPipeline
-from .settings import SETTING_DEFINITIONS, status_payload
+from .settings import SETTING_DEFINITIONS, effective_settings, status_payload
 from .storage import Storage
 from .topics import TopicRegistry
 
@@ -22,6 +23,7 @@ def _json_response(handler, status, payload):
     handler.send_header("Content-Type", "application/json; charset=utf-8")
     handler.send_header("Content-Length", str(len(body)))
     handler.send_header("Access-Control-Allow-Origin", "*")
+    handler.send_header("Cache-Control", "no-store")
     handler.end_headers()
     handler.wfile.write(body)
 
@@ -44,7 +46,7 @@ class RadarServer:
                 self.send_response(204)
                 self.send_header("Access-Control-Allow-Origin", "*")
                 self.send_header("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
-                self.send_header("Access-Control-Allow-Headers", "Content-Type")
+                self.send_header("Access-Control-Allow-Headers", "Content-Type, Authorization, Idempotency-Key")
                 self.end_headers()
 
             def do_GET(self):
@@ -69,15 +71,77 @@ class RadarServer:
                     return _json_response(self, 200, {"topic": topic_id, "runs": app.storage.latest_runs(topic_id), "delivery": app.storage.latest_delivery(topic_id)})
                 if parsed.path == "/api/settings":
                     return _json_response(self, 200, {"settings": status_payload(app.storage)})
+                if parsed.path == "/api/v2/insights":
+                    return _json_response(self, 200, {"source_id": "information-radar", "insights": app.pipeline.lifecycle.projection(topic_id if "topic" in query else None)["data"]["insights"]})
+                if parsed.path.startswith("/api/v2/insights/"):
+                    insight_id = parsed.path.split("/", 4)[4]
+                    insight = app.storage.get_insight(insight_id)
+                    if insight:
+                        return _json_response(self, 200, {"insight": insight, "publication": app.storage.publication_for(insight_id, insight["revision"], "publish"), "withdrawal": app.storage.latest_publication(insight_id, "withdraw")})
+                    return _json_response(self, 404, {"error": {"code": "not_found", "message": "insight not found"}})
+                if parsed.path == "/api/v2/radar/projection" or parsed.path == "/api/v2/projection":
+                    return app.projection_response(self)
+                if parsed.path.startswith("/api/v2/events/"):
+                    event_id = parsed.path.split("/", 4)[4]
+                    event = app.storage.event(event_id)
+                    return _json_response(self, 200, {"event": event}) if event else _json_response(self, 404, {"error": {"code": "not_found", "message": "event not found"}})
                 return app.static(self, parsed.path)
 
             def do_POST(self):
                 parsed = urlparse(self.path)
-                if parsed.path not in ("/api/run", "/api/settings", "/api/verify"):
+                if parsed.path not in ("/api/run", "/api/settings", "/api/verify") and not parsed.path.startswith("/api/v2/"):
                     return _json_response(self, 404, {"error": "not found"})
                 length = int(self.headers.get("Content-Length", "0"))
                 body = self.rfile.read(length) if length else b"{}"
-                payload = json.loads(body.decode("utf-8"))
+                try:
+                    payload = json.loads(body.decode("utf-8"))
+                except json.JSONDecodeError:
+                    return _json_response(self, 400, {"error": {"code": "invalid_request", "message": "request body must be JSON"}})
+                if parsed.path.startswith("/api/v2/"):
+                    if not isinstance(payload, dict):
+                        return _json_response(self, 400, {"error": {"code": "invalid_request", "message": "request body must be an object"}})
+                    app.pipeline.configure_integrations()
+                if parsed.path == "/api/v2/insights":
+                    if not isinstance(payload, dict) or not payload.get("topic_id") or not payload.get("title") or not payload.get("summary"):
+                        return _json_response(self, 400, {"error": {"code": "invalid_request", "message": "topic_id, title and summary are required"}})
+                    try:
+                        insight = app.pipeline.lifecycle.record({key: value for key, value in payload.items() if key not in ("status", "content_hash", "revision")})
+                        return _json_response(self, 201, {"insight": app.storage.get_insight(insight["insight_id"], insight["revision"]), "created": True})
+                    except (ValueError, KeyError) as error:
+                        return _json_response(self, 409, {"error": {"code": str(error), "message": str(error)}})
+                if parsed.path.startswith("/api/v2/insights/"):
+                    parts = parsed.path.strip("/").split("/")
+                    if len(parts) != 5 or parts[0:3] != ["api", "v2", "insights"]:
+                        return _json_response(self, 404, {"error": {"code": "not_found", "message": "not found"}})
+                    insight_id, operation = parts[3], parts[4]
+                    try:
+                        if operation == "publish":
+                            result = app.pipeline.lifecycle.publish(insight_id, payload.get("revision"), payload.get("operation_key") or self.headers.get("Idempotency-Key", ""))
+                        elif operation == "withdraw":
+                            result = app.pipeline.lifecycle.withdraw(insight_id, payload.get("operation_key") or self.headers.get("Idempotency-Key", ""))
+                        else:
+                            return _json_response(self, 404, {"error": {"code": "not_found", "message": "not found"}})
+                        return _json_response(self, 200, result)
+                    except KeyError as error:
+                        return _json_response(self, 404, {"error": {"code": str(error), "message": str(error)}})
+                    except (ValueError, RuntimeError) as error:
+                        return _json_response(self, 409, {"error": {"code": str(error), "message": str(error)}})
+                if parsed.path == "/api/v2/events":
+                    if not isinstance(payload, dict) or not payload.get("insight_id"):
+                        return _json_response(self, 400, {"error": {"code": "invalid_request", "message": "insight_id is required"}})
+                    try:
+                        event = app.pipeline.lifecycle.enqueue_event(payload["insight_id"], payload.get("revision"), payload.get("event_type", "radar.actionable.v1"), payload.get("summary", ""), payload.get("priority", "normal"), bool(payload.get("action_required", True)), payload.get("expires_at"), payload.get("event_id") or self.headers.get("Idempotency-Key", ""), payload.get("sequence"), payload.get("occurred_at"))
+                        return _json_response(self, 201, {"event": event})
+                    except (KeyError, ValueError) as error:
+                        return _json_response(self, 409, {"error": {"code": str(error), "message": str(error)}})
+                if parsed.path.startswith("/api/v2/events/"):
+                    parts = parsed.path.strip("/").split("/")
+                    if len(parts) != 5 or parts[0:3] != ["api", "v2", "events"] or parts[4] != "deliver":
+                        return _json_response(self, 404, {"error": {"code": "not_found", "message": "not found"}})
+                    try:
+                        return _json_response(self, 200, app.pipeline.lifecycle.deliver_event(parts[3], bool(payload.get("allow_unknown_retry", False))))
+                    except KeyError as error:
+                        return _json_response(self, 404, {"error": {"code": str(error), "message": str(error)}})
                 if parsed.path == "/api/settings":
                     changed = []
                     for key, value in payload.items():
@@ -98,6 +162,17 @@ class RadarServer:
                 return _json_response(self, 200, app.pipeline.run(topic_id, deliver=bool(payload.get("deliver"))))
 
         return Handler
+
+    def projection_response(self, handler):
+        settings = effective_settings(self.storage)
+        expected = settings.get("RADAR_PROJECTION_TOKEN", "")
+        if not expected:
+            return _json_response(handler, 503, {"error": {"code": "PROJECTION_AUTH_UNAVAILABLE", "message": "projection token is not configured"}})
+        provided = handler.headers.get("Authorization", "")
+        token = provided[7:].strip() if provided.startswith("Bearer ") else ""
+        if not token or not hmac.compare_digest(token, expected):
+            return _json_response(handler, 401, {"error": {"code": "UNAUTHORIZED", "message": "valid projection bearer token required"}})
+        return _json_response(handler, 200, self.pipeline.lifecycle.projection())
 
     def operations_health(self):
         health = self.storage.health()

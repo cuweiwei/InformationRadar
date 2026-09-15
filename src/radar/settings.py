@@ -13,6 +13,12 @@ SETTING_DEFINITIONS = {
     "LLM_API_URL": {"label": "LLM API URL", "secret": False, "group": "enrichment"},
     "LLM_API_KEY": {"label": "LLM API key", "secret": True, "group": "enrichment"},
     "LLM_MODEL": {"label": "LLM model", "secret": False, "group": "enrichment"},
+    "CONTEXTHUB_BASE_URL": {"label": "ContextHub base URL", "secret": False, "group": "integrations"},
+    "CONTEXTHUB_API_KEY": {"label": "ContextHub API key", "secret": True, "group": "integrations"},
+    "HERMES_EVENT_URL": {"label": "Hermes event URL", "secret": False, "group": "integrations"},
+    "HERMES_EVENT_PATH": {"label": "Hermes event path", "secret": False, "group": "integrations"},
+    "HERMES_EVENT_API_KEY": {"label": "Hermes event API key", "secret": True, "group": "integrations"},
+    "RADAR_PROJECTION_TOKEN": {"label": "Radar projection token", "secret": True, "group": "integrations"},
 }
 
 

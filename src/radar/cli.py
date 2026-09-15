@@ -22,7 +22,9 @@ def parse_since(value):
 def build_context(args):
     storage = Storage(args.db)
     registry = TopicRegistry.default()
-    return storage, registry, RadarPipeline(storage, registry)
+    pipeline = RadarPipeline(storage, registry)
+    pipeline.configure_integrations()
+    return storage, registry, pipeline
 
 
 def main(argv=None):
@@ -36,6 +38,7 @@ def main(argv=None):
     run.add_argument("--deliver", action="store_true")
     run.add_argument("--dry-run", action="store_true")
     run.add_argument("--force", action="store_true", help="re-send a successful delivery")
+    run.add_argument("--publish", action="store_true", help="submit persisted insight revisions as ContextHub candidates")
 
     demo = sub.add_parser("demo", help="seed deterministic fixture signals")
     demo.add_argument("topic", nargs="?", default="ai_tools")
@@ -50,6 +53,34 @@ def main(argv=None):
 
     backup = sub.add_parser("backup", help="create a consistent SQLite backup")
     backup.add_argument("destination")
+
+    insights = sub.add_parser("insights", help="list Radar-owned insight revisions")
+    insights.add_argument("topic", nargs="?", default=None)
+    insights.add_argument("--limit", type=int, default=50)
+
+    publish = sub.add_parser("publish", help="publish one Radar insight revision to ContextHub")
+    publish.add_argument("insight_id")
+    publish.add_argument("--revision", type=int, default=None)
+    publish.add_argument("--operation-key", default="")
+
+    reconcile = sub.add_parser("reconcile", help="reconcile publication status from ContextHub")
+    reconcile.add_argument("insight_id")
+
+    event = sub.add_parser("event", help="queue one actionable Radar event")
+    event.add_argument("insight_id")
+    event.add_argument("--revision", type=int, default=None)
+    event.add_argument("--summary", default="")
+    event.add_argument("--priority", default="normal")
+    event.add_argument("--expires-at", default=None)
+    event.add_argument("--event-id", default="")
+
+    withdraw = sub.add_parser("withdraw", help="withdraw a Radar insight and queue its tombstone event")
+    withdraw.add_argument("insight_id")
+    withdraw.add_argument("--operation-key", default="")
+
+    deliver_event = sub.add_parser("deliver-event", help="deliver a queued event to Hermes")
+    deliver_event.add_argument("event_id")
+    deliver_event.add_argument("--allow-unknown-retry", action="store_true")
 
     schedule = sub.add_parser("schedule", help="run the daily scheduler in Asia/Taipei")
     schedule.add_argument("topic")
@@ -69,7 +100,7 @@ def main(argv=None):
             ranked = pipeline.score_topic(plugin)
             print(json.dumps({"topic": args.topic, "entities": [item.as_dict() for item in ranked]}, ensure_ascii=False, indent=2))
         elif args.command == "run":
-            print(json.dumps(pipeline.run(args.topic, parse_since(args.since), deliver=args.deliver, dry_run=args.dry_run, force=args.force), ensure_ascii=False, indent=2))
+            print(json.dumps(pipeline.run(args.topic, parse_since(args.since), deliver=args.deliver, dry_run=args.dry_run, force=args.force, publish=args.publish), ensure_ascii=False, indent=2))
         elif args.command == "digest":
             result = storage.latest_digest(args.topic)
             print(result["text"] if result else "No digest stored for %s" % args.topic)
@@ -78,6 +109,18 @@ def main(argv=None):
         elif args.command == "backup":
             storage.backup_to(args.destination)
             print(json.dumps({"status": "SUCCESS", "destination": args.destination}, ensure_ascii=False))
+        elif args.command == "insights":
+            print(json.dumps({"insights": storage.latest_insights(args.topic, max(1, min(args.limit, 100)))}, ensure_ascii=False, indent=2))
+        elif args.command == "publish":
+            print(json.dumps(pipeline.lifecycle.publish(args.insight_id, args.revision, args.operation_key), ensure_ascii=False, indent=2))
+        elif args.command == "reconcile":
+            print(json.dumps(pipeline.lifecycle.reconcile_publication(args.insight_id), ensure_ascii=False, indent=2))
+        elif args.command == "event":
+            print(json.dumps(pipeline.lifecycle.enqueue_event(args.insight_id, args.revision, summary=args.summary, priority=args.priority, expires_at=args.expires_at, event_id=args.event_id), ensure_ascii=False, indent=2))
+        elif args.command == "withdraw":
+            print(json.dumps(pipeline.lifecycle.withdraw(args.insight_id, args.operation_key), ensure_ascii=False, indent=2))
+        elif args.command == "deliver-event":
+            print(json.dumps(pipeline.lifecycle.deliver_event(args.event_id, args.allow_unknown_retry), ensure_ascii=False, indent=2))
     finally:
         storage.close()
 

@@ -4,6 +4,12 @@ Information Radar is a personal, topic-agnostic early-signal detector. It ranks 
 
 The repository now contains the Phase 2 core journey and Phase 3 V1 adapters. It runs with Python's standard library only.
 
+The v2 lifecycle is additive and keeps three authorities separate: Radar owns
+immutable insight revisions and provenance; ContextHub receives an explicit
+candidate publication (never an automatic acceptance); Hermes receives a
+bounded actionable event through its durable inbox. Publication receipts and
+Hermes event receipts are stored independently from digest delivery.
+
 ## Quick start
 
 ```bash
@@ -35,6 +41,15 @@ PYTHONPATH=src python3 -m radar.cli schedule ai_tools --hour 7 --minute 0 --deli
 
 # Create a consistent SQLite backup
 PYTHONPATH=src python3 -m radar.cli --db data/radar.db backup backups/radar-manual.db
+
+# Persist and publish Radar-owned insight revisions
+PYTHONPATH=src python3 -m radar.cli run ai_tools --publish
+PYTHONPATH=src python3 -m radar.cli insights ai_tools
+PYTHONPATH=src python3 -m radar.cli publish <insight-id>
+PYTHONPATH=src python3 -m radar.cli event <insight-id> --priority high --expires-at 2026-09-16T00:00:00Z
+PYTHONPATH=src python3 -m radar.cli deliver-event <event-id>
+PYTHONPATH=src python3 -m radar.cli reconcile <insight-id>
+PYTHONPATH=src python3 -m radar.cli withdraw <insight-id>
 ```
 
 ## Architecture
@@ -92,6 +107,28 @@ The production directory is `/volume1/docker/information-radar`. Keep `RADAR_IMA
 Configure Synology Task Scheduler with `/volume1/docker/information-radar/scripts/run-radar-job.sh` at 07:00 and `/volume1/docker/information-radar/scripts/backup-radar.sh` at 06:45. The job is idempotent for collection and digest persistence; delivery records prevent normal duplicate sends. A network timeout after Telegram accepted a message remains an ambiguous delivery and must be reconciled before forcing a retry.
 
 The settings API is intentionally local-only and does not include a multi-user authentication layer in V1. Keep the bind address private and do not publish `/api/settings` to the Internet.
+
+## v2 integrations and evidence boundaries
+
+Set `CONTEXTHUB_BASE_URL` and `CONTEXTHUB_API_KEY` to enable the service-only
+`POST /v1/radar/publications` command. Radar sends `content_hash` for its own
+revision and `hub_content_hash` for ContextHub's canonical item payload. A
+successful HTTP response is not treated as accepted memory unless the Hub
+returns an explicit `candidate` or `accepted` status. Accepted memory remains
+under ContextHub's human review authority.
+
+Set `HERMES_EVENT_URL` and optionally `HERMES_EVENT_PATH` (default
+`/api/internal/hermes/events`) to deliver the event envelope using
+`{source,event_id,payload}`. Radar records Hermes durable-inbox acceptance as a
+receipt; it does not claim Telegram delivery or that a user read the event.
+Events are idempotent by `event_id`, retain `sequence` and
+`subject_revision`, expire without delivery after `expires_at`, and require
+explicit reconciliation before retrying an unknown provider result.
+
+The CP read projection is `GET /api/v2/radar/projection` (also
+`/api/v2/projection`) and requires `Authorization: Bearer <RADAR_PROJECTION_TOKEN>`.
+It contains bounded insight summaries, citations, publication state, and event
+receipt summaries. Raw signals remain Radar-owned and are not projected.
 
 ## Tests
 

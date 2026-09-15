@@ -23,6 +23,12 @@ services:
       LLM_API_URL: ${LLM_API_URL:-}
       LLM_API_KEY: ${LLM_API_KEY:-}
       LLM_MODEL: ${LLM_MODEL:-}
+      CONTEXTHUB_BASE_URL: ${CONTEXTHUB_BASE_URL:-}
+      CONTEXTHUB_API_KEY: ${CONTEXTHUB_API_KEY:-}
+      HERMES_EVENT_URL: ${HERMES_EVENT_URL:-}
+      HERMES_EVENT_PATH: ${HERMES_EVENT_PATH:-}
+      HERMES_EVENT_API_KEY: ${HERMES_EVENT_API_KEY:-}
+      RADAR_PROJECTION_TOKEN: ${RADAR_PROJECTION_TOKEN:-}
     volumes:
       - /volume1/docker/information-radar/data:/app/data
       - /volume1/docker/information-radar/logs:/app/logs
@@ -53,6 +59,12 @@ services:
       LLM_API_URL: ${LLM_API_URL:-}
       LLM_API_KEY: ${LLM_API_KEY:-}
       LLM_MODEL: ${LLM_MODEL:-}
+      CONTEXTHUB_BASE_URL: ${CONTEXTHUB_BASE_URL:-}
+      CONTEXTHUB_API_KEY: ${CONTEXTHUB_API_KEY:-}
+      HERMES_EVENT_URL: ${HERMES_EVENT_URL:-}
+      HERMES_EVENT_PATH: ${HERMES_EVENT_PATH:-}
+      HERMES_EVENT_API_KEY: ${HERMES_EVENT_API_KEY:-}
+      RADAR_PROJECTION_TOKEN: ${RADAR_PROJECTION_TOKEN:-}
     volumes:
       - /volume1/docker/information-radar/data:/app/data
       - /volume1/docker/information-radar/logs:/app/logs
