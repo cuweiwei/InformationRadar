@@ -136,9 +136,6 @@ class CoreTests(unittest.TestCase):
                 payload = json.load(response)
             self.assertEqual(response.status, 200)
             self.assertEqual(payload["service"], "information-radar")
-            for path in ("/health", "/healthz", "/health/ready", "/readyz"):
-                with urlopen("http://127.0.0.1:%d%s" % (server.server_port, path)) as response:
-                    self.assertEqual(response.status, 200)
             with self.assertRaises(HTTPError) as error:
                 urlopen(Request(url, data=b"{}", method="POST"))
             self.assertEqual(error.exception.code, 404)

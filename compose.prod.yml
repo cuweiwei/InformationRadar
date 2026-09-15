@@ -2,7 +2,7 @@ name: information-radar
 
 services:
   radar-web:
-    image: ghcr.io/cuweiwei/information-radar@sha256:44d9cc812c304ae5f8037829d21bc9da66cac7e8b80b05fa0ff3896257fc9f19
+    image: ghcr.io/cuweiwei/information-radar@sha256:94ce29e724a6cf8e0b2443dd9b04a3080dcd7a56813ca6d711c769936660029c
     command: ["radar", "serve", "--host", "0.0.0.0", "--port", "8787", "--no-demo"]
     restart: unless-stopped
     ports:
@@ -28,18 +28,13 @@ services:
       - /volume1/docker/information-radar/logs:/app/logs
     healthcheck:
       test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8787/health/ready', timeout=3)"]
-      interval: 5s
+      interval: 30s
       timeout: 5s
       retries: 3
-      start_period: 5s
-    networks:
-      default: {}
-      personal-ai-network:
-        aliases:
-          - information-radar
+      start_period: 10s
 
   radar-job:
-    image: ghcr.io/cuweiwei/information-radar@sha256:44d9cc812c304ae5f8037829d21bc9da66cac7e8b80b05fa0ff3896257fc9f19
+    image: ghcr.io/cuweiwei/information-radar@sha256:94ce29e724a6cf8e0b2443dd9b04a3080dcd7a56813ca6d711c769936660029c
     profiles: ["job"]
     command: ["radar", "run", "ai_tools", "--since", "1d", "--deliver"]
     environment:
@@ -61,8 +56,3 @@ services:
     volumes:
       - /volume1/docker/information-radar/data:/app/data
       - /volume1/docker/information-radar/logs:/app/logs
-
-networks:
-  default: {}
-  personal-ai-network:
-    external: true
